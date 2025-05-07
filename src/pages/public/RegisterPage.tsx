@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, UserPlus } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
-import { v4 as uuidv4 } from 'uuid';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../lib/firebase';
 
 const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
@@ -30,15 +30,17 @@ const RegisterPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const userId = uuidv4();
-      await addDoc(collection(db, 'users'), {
-        id: userId,
+      // שלב 1: יצירת משתמש ב־Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // שלב 2: שמירת נתונים נוספים ב־Firestore
+      await setDoc(doc(db, 'users', user.uid), {
         name,
         email,
         phone,
-        password,
         role: 'admin',
-        businessId: userId,
+        businessId: user.uid,
         subscription: {
           plan,
           startDate: new Date(),
@@ -49,7 +51,7 @@ const RegisterPage: React.FC = () => {
 
       navigate('/login');
     } catch (err) {
-      setError('אירעה שגיאה בעת ההרשמה');
+      setError('אירעה שגיאה בעת ההרשמה: ייתכן שהאימייל כבר קיים');
     } finally {
       setIsLoading(false);
     }

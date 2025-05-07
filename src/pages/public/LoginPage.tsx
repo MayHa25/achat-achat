@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth, db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import useStore from '../../store/useStore';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
@@ -29,29 +30,29 @@ const LoginPage: React.FC = () => {
     setError('');
 
     try {
-      const q = query(
-        collection(db, 'users'),
-        where('email', '==', email),
-        where('password', '==', password)
-      );
-      const snapshot = await getDocs(q);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userAuth = userCredential.user;
 
-      if (!snapshot.empty) {
-        const userData = snapshot.docs[0].data();
-        setUser({
-          id: snapshot.docs[0].id,
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone,
-          role: userData.role,
-          businessId: userData.businessId
-        });
-        navigate('/admin');
-      } else {
-        setError('פרטי ההתחברות שגויים');
+      const userDoc = await getDoc(doc(db, 'users', userAuth.uid));
+      const userData = userDoc.data();
+
+      if (!userData) {
+        setError('לא נמצאו פרטי משתמש');
+        return;
       }
+
+      setUser({
+        id: userAuth.uid,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        role: userData.role,
+        businessId: userData.businessId
+      });
+
+      navigate('/admin');
     } catch (err) {
-      setError('אירעה שגיאה בעת ההתחברות');
+      setError('פרטי ההתחברות שגויים או שגיאה בשרת');
     } finally {
       setIsLoading(false);
     }
@@ -61,7 +62,7 @@ const LoginPage: React.FC = () => {
     <div className="container mx-auto px-4 py-16">
       <div className="max-w-md mx-auto">
         <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold mb-6 text-center">{t('login_header')}</h1>
+          <h1 className="text-2xl font-bold mb-6 text-center">{t('login_header', 'התחברות')}</h1>
 
           {error && (
             <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded mb-4">
@@ -71,22 +72,22 @@ const LoginPage: React.FC = () => {
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label htmlFor="email" className="block text-gray-700 mb-1">{t('email')}</label>
+              <label htmlFor="email" className="block text-gray-700 mb-1">{t('email', 'אימייל')}</label>
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full border border-gray-300 rounded-md px-4 py-2"
                 required
               />
             </div>
 
             <div className="mb-6">
               <div className="flex items-center justify-between mb-1">
-                <label htmlFor="password" className="text-gray-700">{t('password')}</label>
-                <a href="#" className="text-sm text-primary-600 hover:text-primary-800 transition-colors">
-                  {t('forgot_password')}
+                <label htmlFor="password" className="text-gray-700">{t('password', 'סיסמה')}</label>
+                <a href="#" className="text-sm text-primary-600 hover:text-primary-800">
+                  {t('forgot_password', 'שכחת סיסמה?')}
                 </a>
               </div>
               <div className="relative">
@@ -95,12 +96,12 @@ const LoginPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-gray-300 rounded-md px-4 py-2 pr-10"
                   required
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -111,14 +112,14 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
+              className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition ${
                 isLoading ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
-              {isLoading ? t('loading') : (
+              {isLoading ? t('loading', 'טוען...') : (
                 <>
                   <LogIn className="w-5 h-5" />
-                  {t('login')}
+                  {t('login', 'התחברות')}
                 </>
               )}
             </button>
@@ -127,8 +128,8 @@ const LoginPage: React.FC = () => {
           <div className="mt-6 text-center text-gray-600">
             <p>
               עדיין אין לך חשבון?{' '}
-              <Link to="/register" className="text-primary-600 hover:text-primary-800 transition-colors">
-                {t('register')}
+              <Link to="/register" className="text-primary-600 hover:text-primary-800">
+                {t('register', 'להרשמה')}
               </Link>
             </p>
           </div>
