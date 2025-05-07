@@ -1,64 +1,74 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import useStore from '../../store/useStore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { setUser } = useStore();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       setError('אנא הזן את כל השדות');
       return;
     }
-    
+
     setIsLoading(true);
     setError('');
-    
-    // In a real app, we would authenticate against a backend
-    // For demo purposes, we'll use a dummy login
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      if (email === 'admin@example.com' && password === 'password') {
+
+    try {
+      const q = query(
+        collection(db, 'users'),
+        where('email', '==', email),
+        where('password', '==', password)
+      );
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+        const userData = snapshot.docs[0].data();
         setUser({
-          id: 'user-1',
-          name: 'ישראל ישראלי',
-          email: 'admin@example.com',
-          phone: '050-1234567',
-          role: 'admin',
-          businessId: 'business-1'
+          id: snapshot.docs[0].id,
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone,
+          role: userData.role,
+          businessId: userData.businessId
         });
         navigate('/admin');
       } else {
         setError('פרטי ההתחברות שגויים');
       }
-    }, 1000);
+    } catch (err) {
+      setError('אירעה שגיאה בעת ההתחברות');
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
+
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="max-w-md mx-auto">
         <div className="bg-white rounded-lg shadow-md p-8">
           <h1 className="text-2xl font-bold mb-6 text-center">{t('login_header')}</h1>
-          
+
           {error && (
             <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
-          
+
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
               <label htmlFor="email" className="block text-gray-700 mb-1">{t('email')}</label>
@@ -71,7 +81,7 @@ const LoginPage: React.FC = () => {
                 required
               />
             </div>
-            
+
             <div className="mb-6">
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="password" className="text-gray-700">{t('password')}</label>
@@ -97,7 +107,7 @@ const LoginPage: React.FC = () => {
                 </button>
               </div>
             </div>
-            
+
             <button
               type="submit"
               disabled={isLoading}
@@ -113,19 +123,14 @@ const LoginPage: React.FC = () => {
               )}
             </button>
           </form>
-          
+
           <div className="mt-6 text-center text-gray-600">
             <p>
               עדיין אין לך חשבון?{' '}
-              <a href="#" className="text-primary-600 hover:text-primary-800 transition-colors">{t('register')}</a>
+              <Link to="/register" className="text-primary-600 hover:text-primary-800 transition-colors">
+                {t('register')}
+              </Link>
             </p>
-            
-            {/* Temporary demo login info */}
-            <div className="mt-6 p-3 bg-gray-50 rounded-md text-sm">
-              <p className="font-semibold mb-1">פרטי התחברות לדמו:</p>
-              <p>דוא״ל: admin@example.com</p>
-              <p>סיסמה: password</p>
-            </div>
           </div>
         </div>
       </div>

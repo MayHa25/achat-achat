@@ -3,10 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Calendar, Check, Clock, CreditCard } from 'lucide-react';
 
+interface Feature {
+  icon: JSX.Element;
+  title: string;
+  description: string;
+}
+
 const Home: React.FC = () => {
   const { t } = useTranslation();
 
-  const features = [
+  const features: Feature[] = [
     {
       icon: <Calendar className="w-8 h-8 text-primary-400" />,
       title: 'ניהול תורים קל ונוח',
@@ -43,14 +49,14 @@ const Home: React.FC = () => {
               מערכת מתקדמת לניהול תורים, לקוחות ותשלומים לבעלי קליניקות ועסקים בתחום הטיפולים
             </p>
             <div className="flex flex-wrap gap-4">
-              <Link 
-                to="/book" 
+              <Link
+                to="/book"
                 className="px-6 py-3 bg-secondary-100 text-primary-600 rounded-md font-medium hover:bg-secondary-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-100"
               >
                 {t('book_appointment')}
               </Link>
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="px-6 py-3 bg-white bg-opacity-10 text-white rounded-md font-medium hover:bg-opacity-20 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
               >
                 {t('login')}
@@ -59,7 +65,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Features Section */}
       <section className="py-16 bg-primary-50">
         <div className="container mx-auto px-4">
@@ -69,11 +75,11 @@ const Home: React.FC = () => {
               המערכת שלנו מספקת את כל הכלים שאתה צריך כדי לנהל את העסק שלך ביעילות ולהעניק ללקוחות שלך חוויה נהדרת
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className="bg-white p-6 rounded-lg shadow-md border border-primary-100 transition-all hover:shadow-lg hover:border-primary-200"
               >
                 <div className="mb-4 bg-primary-50 w-16 h-16 rounded-full flex items-center justify-center">{feature.icon}</div>
@@ -84,7 +90,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       {/* CTA Section */}
       <section className="bg-gradient-to-r from-primary-400 to-primary-500 py-16 text-white">
         <div className="container mx-auto px-4">
@@ -96,8 +102,8 @@ const Home: React.FC = () => {
               </p>
             </div>
             <div className="md:w-1/3 flex justify-center md:justify-end">
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="px-8 py-4 bg-secondary-100 text-primary-600 rounded-md font-medium text-lg hover:bg-secondary-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-100"
               >
                 התחל עכשיו
@@ -106,12 +112,12 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       {/* Testimonials Section */}
       <section className="py-16 bg-primary-50">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-12 text-center text-primary-600">מה הלקוחות שלנו אומרים</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {

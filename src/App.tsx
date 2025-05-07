@@ -14,6 +14,7 @@ import BookPage from './pages/public/BookPage';
 import ConfirmationPage from './pages/public/ConfirmationPage';
 import ThankYouPage from './pages/public/ThankYouPage';
 import LoginPage from './pages/public/LoginPage';
+import RegisterPage from './pages/public/RegisterPage'; // ✅ חדש
 
 // Pages - Admin
 import DashboardPage from './pages/admin/DashboardPage';
@@ -30,7 +31,6 @@ import { loadMockData } from './utils/mockData';
 function App() {
   const { t } = useTranslation();
   
-  // Load mock data for demo
   React.useEffect(() => {
     loadMockData();
   }, []);
@@ -45,6 +45,7 @@ function App() {
           <Route path="confirmation" element={<ConfirmationPage />} />
           <Route path="thank-you" element={<ThankYouPage />} />
           <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} /> {/* ✅ נוסף */}
         </Route>
         
         {/* Admin Routes */}

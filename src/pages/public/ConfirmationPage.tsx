@@ -5,48 +5,61 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Check, CreditCard } from 'lucide-react';
 
+interface Appointment {
+  startTime: string | Date;
+}
+
+interface Client {
+  name: string;
+  phone: string;
+}
+
+interface Service {
+  name: string;
+  price: number;
+}
+
+interface LocationState {
+  appointment: Appointment;
+  client: Client;
+  service: Service;
+}
+
 const ConfirmationPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Get the appointment data passed from BookPage with default values
-  const { appointment, client, service } = location.state || {
-    appointment: null,
-    client: null,
-    service: null
-  };
-  
+
+  const state = location.state as LocationState | null;
+
+  const appointment = state?.appointment;
+  const client = state?.client;
+  const service = state?.service;
+
   const [paymentMethod, setPaymentMethod] = useState<string>('credit');
   const [cardNumber, setCardNumber] = useState<string>('');
   const [expiryDate, setExpiryDate] = useState<string>('');
   const [cvv, setCvv] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  
+
   const handlePayment = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // In a real app, we would process the payment here
     setIsProcessing(true);
-    
-    // Simulate payment processing
+
     setTimeout(() => {
       setIsProcessing(false);
-      
-      // Navigate to thank you page
-      navigate('/thank-you', { 
-        state: { 
+      navigate('/thank-you', {
+        state: {
           appointment,
           client,
           service,
-          paymentMethod 
-        } 
+          paymentMethod
+        }
       });
     }, 1500);
   };
-  
+
   if (!appointment || !client || !service) {
-    // Handle the case where the user navigated directly to this page without an appointment
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
@@ -62,7 +75,7 @@ const ConfirmationPage: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-3xl mx-auto">
@@ -74,24 +87,23 @@ const ConfirmationPage: React.FC = () => {
             <h1 className="text-2xl font-bold">{t('appointment_booked')}</h1>
             <p className="text-gray-600">כעת תוכל לבצע תשלום עבור התור שהזמנת</p>
           </div>
-          
-          {/* Appointment details */}
+
           <div className="bg-gray-50 p-4 rounded-md mb-8">
             <h2 className="font-semibold text-lg mb-4">{t('confirmation_details')}</h2>
             <div className="space-y-2">
               <p className="flex justify-between">
                 <span className="text-gray-600">{t('appointment_service')}:</span>
-                <span className="font-medium">{service.name}</span>
+                <span className="font-medium">{service!.name}</span>
               </p>
               <p className="flex justify-between">
                 <span className="text-gray-600">{t('appointment_date')}:</span>
                 <span className="font-medium">
-                  {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })}
+                  {format(new Date(appointment.startTime), 'EEEE, d בMMMM yyyy', { locale: he })}
                 </span>
               </p>
               <p className="flex justify-between">
                 <span className="text-gray-600">{t('appointment_time')}:</span>
-                <span className="font-medium">{format(appointment.startTime, 'HH:mm')}</span>
+                <span className="font-medium">{format(new Date(appointment.startTime), 'HH:mm')}</span>
               </p>
               <p className="flex justify-between">
                 <span className="text-gray-600">{t('client_name')}:</span>
@@ -103,15 +115,13 @@ const ConfirmationPage: React.FC = () => {
               </p>
               <p className="flex justify-between">
                 <span className="text-gray-600">{t('appointment_price')}:</span>
-                <span className="font-medium">₪{service.price}</span>
+                <span className="font-medium">₪{service!.price}</span>
               </p>
             </div>
           </div>
-          
-          {/* Payment form */}
+
           <div>
             <h2 className="font-semibold text-lg mb-4">{t('payment_title')}</h2>
-            
             <form onSubmit={handlePayment}>
               <div className="mb-4">
                 <p className="text-gray-600 mb-2">{t('payment_method')}</p>
@@ -127,7 +137,6 @@ const ConfirmationPage: React.FC = () => {
                     />
                     <span>{t('credit_card')}</span>
                   </label>
-                  
                   <label className="flex items-center">
                     <input
                       type="radio"
@@ -141,7 +150,7 @@ const ConfirmationPage: React.FC = () => {
                   </label>
                 </div>
               </div>
-              
+
               {paymentMethod === 'credit' && (
                 <div className="space-y-4 mb-6">
                   <div>
@@ -156,7 +165,6 @@ const ConfirmationPage: React.FC = () => {
                       required
                     />
                   </div>
-                  
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="expiryDate" className="block text-gray-700 mb-1">{t('expiration_date')}</label>
@@ -170,7 +178,6 @@ const ConfirmationPage: React.FC = () => {
                         required
                       />
                     </div>
-                    
                     <div>
                       <label htmlFor="cvv" className="block text-gray-700 mb-1">{t('cvv')}</label>
                       <input
@@ -186,7 +193,7 @@ const ConfirmationPage: React.FC = () => {
                   </div>
                 </div>
               )}
-              
+
               {paymentMethod === 'bit' && (
                 <div className="p-6 border border-gray-200 rounded-md mb-6 text-center">
                   <p className="mb-4">שלח תשלום באמצעות ביט למספר:</p>
@@ -194,13 +201,11 @@ const ConfirmationPage: React.FC = () => {
                   <p className="text-gray-500">נא לציין את שמך ותאריך התור בהערות</p>
                 </div>
               )}
-              
+
               <button
                 type="submit"
                 disabled={isProcessing}
-                className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  isProcessing ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
+                className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
                 {isProcessing ? t('loading') : (
                   <>
