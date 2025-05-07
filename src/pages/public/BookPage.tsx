@@ -71,7 +71,6 @@ const BookPage: React.FC = () => {
 
     try {
       await addDoc(collection(db, 'appointments'), appointment);
-
       navigate('/confirmation', {
         state: { appointment, client: { name, phone, email, notes }, service }
       });
@@ -93,6 +92,8 @@ const BookPage: React.FC = () => {
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h1 className="text-2xl font-bold mb-6 text-center">{t('book_appointment')}</h1>
+
+          {/* Step Indicator */}
           <div className="flex justify-center mb-8">
             <div className="flex items-center space-x-4 rtl:space-x-reverse">
               {[1, 2, 3].map(i => (
@@ -105,7 +106,114 @@ const BookPage: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* All steps rendering remain unchanged */}
+            {/* Step 1: Select Service */}
+            {step === 1 && (
+              <div className="mb-6">
+                <label className="block text-gray-700 mb-2">{t('select_service') || 'בחרי שירות'}</label>
+                <select
+                  value={selectedService}
+                  onChange={(e) => setSelectedService(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-4 py-2"
+                  required
+                >
+                  <option value="">-- בחרי --</option>
+                  {services.map((service: any) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Step 2: Select Date and Time */}
+            {step === 2 && (
+              <>
+                <div className="mb-6">
+                  <label className="block text-gray-700 mb-2">{t('select_date') || 'בחרי תאריך'}</label>
+                  <Calendar
+                    onChange={(date) => setSelectedDate(date as Date)}
+                    value={selectedDate}
+                    minDate={new Date()}
+                    locale="he"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-gray-700 mb-2">{t('select_time') || 'בחרי שעה'}</label>
+                  <select
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-4 py-2"
+                    required
+                  >
+                    <option value="">-- בחרי שעה --</option>
+                    {availableTimes.map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* Step 3: Client Info */}
+            {step === 3 && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-gray-700 mb-1">{t('name') || 'שם מלא'}</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-4 py-2"
+                    required
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 mb-1">{t('phone') || 'טלפון'}</label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-4 py-2"
+                    required
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 mb-1">{t('email') || 'אימייל (לא חובה)'}</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-4 py-2"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 mb-1">{t('notes') || 'הערות'}</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-4 py-2"
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <button
+                type="submit"
+                disabled={isNextDisabled()}
+                className={`bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors ${
+                  isNextDisabled() ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {step < 3 ? t('next') || 'הבא' : t('book') || 'שלחי תור'}
+              </button>
+            </div>
           </form>
         </div>
       </div>
