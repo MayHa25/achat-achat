@@ -2,21 +2,21 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase'; // ודא שהנתיב הזה נכון
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import useStore from '../../store/useStore';
 
 interface Appointment {
   id: string;
   businessId: string;
-  startTime: string;
+  startTime: Timestamp;
   status: string;
   notes?: string;
 }
 
 const AppointmentsPage: React.FC = () => {
   const { t } = useTranslation();
-  const { user } = useStore(); // שמרנו את useStore רק בשביל ה-user
+  const { user } = useStore();
   const businessId = user?.businessId;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,7 @@ const AppointmentsPage: React.FC = () => {
           <ul className="space-y-4">
             {appointments.map(app => (
               <li key={app.id} className="border-b pb-2">
-                <div><strong>תאריך:</strong> {new Date(app.startTime).toLocaleString('he-IL')}</div>
+                <div><strong>תאריך:</strong> {app.startTime.toDate().toLocaleString('he-IL')}</div>
                 <div><strong>סטטוס:</strong> {app.status}</div>
                 <div><strong>הערות:</strong> {app.notes || '-'}</div>
               </li>

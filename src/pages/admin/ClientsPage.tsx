@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
 
@@ -10,7 +10,7 @@ interface Client {
   phone: string;
   email?: string;
   notes?: string;
-  created?: any;
+  created?: Timestamp;
 }
 
 const ClientsPage = () => {
@@ -29,8 +29,8 @@ const ClientsPage = () => {
         const snapshot = await getDocs(q);
         const clientList = snapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
-        })) as Client[];
+          ...(doc.data() as Omit<Client, 'id'>),
+        }));
         setClients(clientList);
       } catch (err) {
         console.error('שגיאה בטעינת לקוחות:', err);
@@ -57,6 +57,11 @@ const ClientsPage = () => {
                 <p className="font-semibold">{client.name}</p>
                 <p className="text-sm text-gray-600">{client.phone}</p>
                 {client.email && <p className="text-sm text-gray-500">{client.email}</p>}
+                {client.created && (
+                  <p className="text-xs text-gray-400">
+                    נוצר בתאריך: {client.created.toDate().toLocaleDateString('he-IL')}
+                  </p>
+                )}
               </li>
             ))}
           </ul>
