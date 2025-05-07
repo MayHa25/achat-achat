@@ -69,6 +69,17 @@ const BookPage: React.FC = () => {
       return;
     }
 
+    if (!selectedDate || !selectedTime) {
+      alert("אנא בחרי תאריך ושעה לפני שליחת טופס.");
+      return;
+    }
+
+    const appointmentDate = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`);
+    if (isNaN(appointmentDate.getTime())) {
+      alert("שעת התור אינה תקינה. נסי שוב.");
+      return;
+    }
+
     const service = services.find((s) => s.id === selectedService);
 
     const appointment = {
@@ -78,7 +89,7 @@ const BookPage: React.FC = () => {
       clientEmail: email,
       serviceId: selectedService,
       serviceName: service?.name || '',
-      startTime: Timestamp.fromDate(new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`)),
+      startTime: Timestamp.fromDate(appointmentDate),
       status: 'pending',
       paymentStatus: 'pending',
       notes,
@@ -91,7 +102,7 @@ const BookPage: React.FC = () => {
       });
     } catch (error) {
       console.error('שגיאה בשמירת התור:', error);
-      alert('אירעה שגיאה בשמירת התור. נסה שוב.');
+      alert('אירעה שגיאה בשמירת התור. נסי שוב.');
     }
   };
 
