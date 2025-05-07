@@ -69,14 +69,22 @@ const BookPage: React.FC = () => {
       return;
     }
 
-    if (!selectedDate || !selectedTime) {
-      alert("אנא בחרי תאריך ושעה לפני שליחת טופס.");
+    // בדיקות קלט הכרחיות
+    if (!selectedService || !selectedDate || !selectedTime || !name || !phone) {
+      alert("חסרים שדות חובה. אנא ודאי שכל המידע מולא.");
       return;
     }
 
-    const appointmentDate = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`);
+    // תיעוד לוגים אם יש בעיה
+    console.log("Selected Date:", selectedDate);
+    console.log("Selected Time:", selectedTime);
+
+    // בניית תאריך באופן בטוח
+    const datetimeStr = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`;
+    const appointmentDate = new Date(datetimeStr);
+
     if (isNaN(appointmentDate.getTime())) {
-      alert("שעת התור אינה תקינה. נסי שוב.");
+      alert(`שעת התור שגויה: ${datetimeStr}`);
       return;
     }
 
