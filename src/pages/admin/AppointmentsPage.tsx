@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import useStore from '../../store/useStore';
 
@@ -46,6 +46,19 @@ const AppointmentsPage: React.FC = () => {
     fetchAppointments();
   }, [businessId]);
 
+  const updateAppointmentStatus = async (id: string, newStatus: 'approved' | 'rejected') => {
+    try {
+      const ref = doc(db, 'appointments', id);
+      await updateDoc(ref, { status: newStatus });
+      setAppointments(prev =>
+        prev.map(app => app.id === id ? { ...app, status: newStatus } : app)
+      );
+    } catch (err) {
+      console.error('שגיאה בעדכון סטטוס התור:', err);
+      alert('שגיאה בעדכון סטטוס התור.');
+    }
+  };
+
   if (!businessId) {
     return (
       <div className="p-6">
@@ -74,6 +87,23 @@ const AppointmentsPage: React.FC = () => {
                 <div><strong>תאריך:</strong> {app.startTime.toDate().toLocaleString('he-IL')}</div>
                 <div><strong>סטטוס:</strong> {app.status}</div>
                 <div><strong>הערות:</strong> {app.notes || '-'}</div>
+
+                {app.status === 'pending' && (
+                  <div className="mt-2 flex space-x-2 rtl:space-x-reverse">
+                    <button
+                      className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition"
+                      onClick={() => updateAppointmentStatus(app.id, 'approved')}
+                    >
+                      אשרי
+                    </button>
+                    <button
+                      className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+                      onClick={() => updateAppointmentStatus(app.id, 'rejected')}
+                    >
+                      דחייה
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

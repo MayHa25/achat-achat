@@ -4,7 +4,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getMessaging, getToken } from 'firebase/messaging';
 import useStore from '../../store/useStore';
 
 const LoginPage: React.FC = () => {
@@ -17,6 +18,24 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // פונקציה לעדכון ה־FCM Token במסמך המשתמש
+  const updateFCMToken = async (userId: string) => {
+    try {
+      const messaging = getMessaging();
+      const token = await getToken(messaging, { vapidKey: "YOUR_VAPID_KEY_HERE" });
+      if (token) {
+        // עדכון מסמך המשתמש עם השדה fcmToken (merge: true כדי לא למחוק שדות קיימים)
+        const userRef = doc(db, 'users', userId);
+        await setDoc(userRef, { fcmToken: token }, { merge: true });
+        console.log("FCM Token נשמר בהצלחה:", token);
+      } else {
+        console.warn("לא התקבל FCM Token");
+      }
+    } catch (err) {
+      console.error("שגיאה בעדכון FCM Token:", err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +59,9 @@ const LoginPage: React.FC = () => {
         setError('לא נמצאו פרטי משתמש');
         return;
       }
+
+      // עדכון ה־FCM Token לאחר ההתחברות
+      await updateFCMToken(userAuth.uid);
 
       setUser({
         id: userAuth.uid,
