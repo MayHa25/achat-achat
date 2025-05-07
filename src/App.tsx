@@ -14,7 +14,7 @@ import BookPage from './pages/public/BookPage';
 import ConfirmationPage from './pages/public/ConfirmationPage';
 import ThankYouPage from './pages/public/ThankYouPage';
 import LoginPage from './pages/public/LoginPage';
-import RegisterPage from './pages/public/RegisterPage'; // ✅ חדש
+import RegisterPage from './pages/public/RegisterPage';
 
 // Pages - Admin
 import DashboardPage from './pages/admin/DashboardPage';
@@ -30,7 +30,7 @@ import { loadMockData } from './utils/mockData';
 
 function App() {
   const { t } = useTranslation();
-  
+
   React.useEffect(() => {
     loadMockData();
   }, []);
@@ -41,16 +41,16 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<Home />} />
-          <Route path="book" element={<BookPage />} />
+          <Route path=":ownerId/book" element={<BookPage />} /> {/* ✅ נוסף - תיקון נתיב */}
           <Route path="confirmation" element={<ConfirmationPage />} />
           <Route path="thank-you" element={<ThankYouPage />} />
           <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} /> {/* ✅ נוסף */}
+          <Route path="register" element={<RegisterPage />} />
         </Route>
-        
+
         {/* Admin Routes */}
-        <Route 
-          path="/admin" 
+        <Route
+          path="/admin"
           element={
             <ProtectedRoute>
               <AdminLayout />
