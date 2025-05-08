@@ -15,14 +15,14 @@ const BookPage: React.FC = () => {
   const { ownerId } = useParams<{ ownerId: string }>();
   const { services, setServices } = useStore();
 
-  const [selectedService, setSelectedService] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedTime, setSelectedTime] = useState<string>('');
-  const [name, setName] = useState<string>('');
-  const [phone, setPhone] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-  const [step, setStep] = useState<number>(1);
+  const [selectedService, setSelectedService] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedTime, setSelectedTime] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [notes, setNotes] = useState('');
+  const [step, setStep] = useState(1);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
 
   useEffect(() => {
@@ -69,17 +69,11 @@ const BookPage: React.FC = () => {
       return;
     }
 
-    // בדיקות קלט הכרחיות
     if (!selectedService || !selectedDate || !selectedTime || !name || !phone) {
       alert("חסרים שדות חובה. אנא ודאי שכל המידע מולא.");
       return;
     }
 
-    // תיעוד לוגים אם יש בעיה
-    console.log("Selected Date:", selectedDate);
-    console.log("Selected Time:", selectedTime);
-
-    // בניית תאריך באופן בטוח
     const datetimeStr = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`;
     const appointmentDate = new Date(datetimeStr);
 
@@ -125,7 +119,7 @@ const BookPage: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h1 className="text-2xl font-bold mb-6 text-center">{t('book_appointment')}</h1>
+          <h1 className="text-2xl font-bold mb-6 text-center">{t('book_appointment') || 'קביעת תור'}</h1>
 
           <div className="flex justify-center mb-8">
             <div className="flex items-center space-x-4 rtl:space-x-reverse">
@@ -239,9 +233,7 @@ const BookPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isNextDisabled()}
-                className={`bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors ${
-                  isNextDisabled() ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                className={`bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors ${isNextDisabled() ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {step < 3 ? t('next') || 'הבא' : t('book') || 'שלחי תור'}
               </button>
