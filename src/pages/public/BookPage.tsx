@@ -101,7 +101,7 @@ const BookPage: React.FC = () => {
     const service = services.find((s) => s.id === selectedService);
 
     const appointment = {
-      businessId: ownerId,
+      businessId: ownerId,  // הוספת businessId לתור
       clientName: name,
       clientPhone: phone,
       clientEmail: email,
@@ -114,8 +114,10 @@ const BookPage: React.FC = () => {
     };
 
     try {
+      // שמירת התור
       await addDoc(collection(db, 'appointments'), appointment);
 
+      // עדכון הלקוח
       const clientRef = doc(db, 'clients', `${ownerId}_${phone}`);
       const clientSnap = await getDocs(
         query(collection(db, 'clients'), where('businessId', '==', ownerId), where('phone', '==', phone))
@@ -134,7 +136,7 @@ const BookPage: React.FC = () => {
       await setDoc(
         clientRef,
         {
-          businessId: ownerId,
+          businessId: ownerId,  // הוספת businessId גם כאן
           name,
           phone,
           email,
