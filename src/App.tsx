@@ -39,7 +39,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
+        {/* Public routes with layout */}
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<Home />} />
           <Route path=":ownerId/book" element={<BookPage />} />
@@ -50,7 +50,7 @@ function App() {
           <Route path="register" element={<RegisterPage />} />
         </Route>
 
-        {/* Admin Routes */}
+        {/* Admin routes with protection */}
         <Route
           path="/admin"
           element={
@@ -67,6 +67,9 @@ function App() {
           <Route path="payments" element={<PaymentsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
+
+        {/* fallback if no route matched */}
+        <Route path="*" element={<div style={{ padding: '2rem' }}>הדף לא נמצא</div>} />
       </Routes>
     </Router>
   );
