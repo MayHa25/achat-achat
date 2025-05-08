@@ -15,7 +15,7 @@ interface Client {
 
 const ClientsPage = () => {
   const { t } = useTranslation();
-  const { user } = useStore();
+  const { user } = useStore(); // כאן אנו לוקחים את פרטי בעלת העסק
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -25,6 +25,7 @@ const ClientsPage = () => {
     const fetchClients = async () => {
       setLoading(true);
       try {
+        // טוען את כל הלקוחות עם ה-businessId של בעלת העסק
         const q = query(collection(db, 'clients'), where('businessId', '==', user.businessId));
         const snapshot = await getDocs(q);
         const clientList = snapshot.docs.map(doc => ({
@@ -40,7 +41,7 @@ const ClientsPage = () => {
     };
 
     fetchClients();
-  }, [user?.businessId]);
+  }, [user?.businessId]); // אם ה-businessId של בעלת העסק משתנה, נעדכן את רשימת הלקוחות
 
   return (
     <div className="p-6">
