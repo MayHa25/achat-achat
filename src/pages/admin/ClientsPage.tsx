@@ -1,304 +1,134 @@
-import { useState, useEffect } from 'react';
+// src/pages/admin/ClientsPage.tsx
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
-import { format } from 'date-fns';
-import useStore from '../../store/useStore';
-import { db } from '../../lib/firebase';
 import {
   collection,
-  addDoc,
-  getDocs,
   query,
   where,
-  Timestamp,
+  getDocs,
+  getDoc,
+  updateDoc,
   doc,
-  setDoc,
   increment,
+  writeBatch,
+  deleteField,
+  Timestamp
 } from 'firebase/firestore';
-import { Service } from '../../types';
+import { db } from '../../lib/firebase';
+import useStore from '../../store/useStore';
 
-const BookPage: React.FC = () => {
+interface Client {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  notes?: string;
+  created?: Timestamp;
+  visitCount: number;
+  totalAmount: number;
+  status: string;
+}
+
+const ClientsPage: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { ownerId } = useParams<{ ownerId: string }>();
-  const { services, setServices } = useStore();
+  const { user } = useStore();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const [selectedService, setSelectedService] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedTime, setSelectedTime] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [notes, setNotes] = useState('');
-  const [step, setStep] = useState(1);
-  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
-
-  useEffect(() => {
-    const fetchServices = async () => {
-      if (!ownerId) return;
-      const q = query(collection(db, 'services'), where('businessId', '==', ownerId));
-      const snapshot = await getDocs(q);
-      const loaded: Service[] = snapshot.docs.map(doc => ({
-        ...(doc.data() as Omit<Service, 'id'>),
-        id: doc.id,
-      }));
-      setServices(loaded);
-    };
-
-    fetchServices();
-  }, [ownerId, setServices]);
-
-  useEffect(() => {
-    if (!selectedDate || !selectedService) {
-      setAvailableTimes([]);
-      return;
-    }
-
-    const timeSlots = [
-      '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-      '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-    ];
-
-    const available = timeSlots.filter((_, index) => index % 3 !== 0);
-    setAvailableTimes(available);
-  }, [selectedDate, selectedService]);
-
-  const determineClientStatus = (visits: number): string => {
-    if (visits >= 10) return 'VIP';
-    if (visits >= 3) return 'קבוע';
+  // קובע סטטוס לפי מספר הביקורים
+  const determineClientStatus = (visitCount: number): string => {
+    if (visitCount >= 5) return 'VIP';
+    if (visitCount >= 3) return 'קבוע';
     return 'מזדמן';
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // מעדכן ססטיסטיקות של לקוח בודד
+  const updateClientData = async (clientId: string, amount: number) => {
+    const clientRef = doc(db, 'clients', clientId);
+    const snap = await getDoc(clientRef);
+    const data = snap.data() || {};
+    const currentVisits = typeof data.visitCount === 'number' ? data.visitCount : 0;
+    const newVisits = currentVisits + 1;
+    const status = determineClientStatus(newVisits);
 
-    if (!ownerId) {
-      alert("שגיאה: לא נמצא מזהה של בעלת העסק (ownerId).");
-      return;
-    }
+    await updateDoc(clientRef, {
+      visitCount: increment(1),
+      totalAmount: increment(amount),
+      status
+    });
+  };
 
-    if (step < 3) {
-      setStep(step + 1);
-      return;
-    }
+  // משחרר את businessId מכל הלקוחות הקיימים ומיועד אותו ללקוח החדש
+  const reassignBusinessId = async (newClientId: string) => {
+    if (!user?.businessId) return;
+    const batch = writeBatch(db);
 
-    if (!selectedService || !selectedDate || !selectedTime || !name || !phone) {
-      alert("חסרים שדות חובה. אנא ודאי שכל המידע מולא.");
-      return;
-    }
-
-    const datetimeStr = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`;
-    const appointmentDate = new Date(datetimeStr);
-
-    if (isNaN(appointmentDate.getTime())) {
-      alert(`שעת התור שגויה: ${datetimeStr}`);
-      return;
-    }
-
-    const service = services.find((s) => s.id === selectedService);
-
-    const appointment = {
-      businessId: ownerId,  // הוספת businessId לתור
-      clientName: name,
-      clientPhone: phone,
-      clientEmail: email,
-      serviceId: selectedService,
-      serviceName: service?.name || '',
-      startTime: Timestamp.fromDate(appointmentDate),
-      status: 'pending',
-      paymentStatus: 'pending',
-      notes,
-    };
-
-    try {
-      // שמירת התור
-      await addDoc(collection(db, 'appointments'), appointment);
-
-      // עדכון הלקוח
-      const clientRef = doc(db, 'clients', `${ownerId}_${phone}`);
-      const clientSnap = await getDocs(
-        query(collection(db, 'clients'), where('businessId', '==', ownerId), where('phone', '==', phone))
-      );
-
-      let currentVisits = 0;
-
-      if (!clientSnap.empty) {
-        const docData = clientSnap.docs[0].data();
-        currentVisits = docData.visits || 0;
+    // שולף את כל הלקוחות שמשויכים כרגע אליך
+    const prevSnap = await getDocs(
+      query(collection(db, 'clients'), where('businessId', '==', user.businessId))
+    );
+    prevSnap.docs.forEach(docSnap => {
+      if (docSnap.id !== newClientId) {
+        batch.update(doc(db, 'clients', docSnap.id), {
+          businessId: deleteField()
+        });
       }
+    });
 
-      const newVisits = currentVisits + 1;
-      const status = determineClientStatus(newVisits);
+    // מייחס את ה-businessId ללקוח החדש
+    batch.update(doc(db, 'clients', newClientId), {
+      businessId: user.businessId
+    });
 
-      await setDoc(
-        clientRef,
-        {
-          businessId: ownerId,  // הוספת businessId גם כאן
-          name,
-          phone,
-          email,
-          notes,
-          visits: increment(1),  // עדכון ספירת הגעות
-          totalPayments: increment(0),  // עדכון סכום התשלומים
-          status,
-        },
-        { merge: true }
-      );
-
-      navigate('/appointment-sent', {
-        state: { appointment, client: { name, phone, email, notes }, service },
-      });
-    } catch (error) {
-      console.error('שגיאה בשמירת התור:', error);
-      alert('אירעה שגיאה בשמירת התור. נסי שוב.');
-    }
+    await batch.commit();
   };
 
-  const isNextDisabled = () => {
-    if (step === 1) return !selectedService;
-    if (step === 2) return !selectedDate || !selectedTime;
-    if (step === 3) return !name || !phone;
-    return false;
-  };
+  // טוען את רשימת הלקוחות המשויכים אליך
+  useEffect(() => {
+    if (!user?.businessId) return;
+    setLoading(true);
+    getDocs(query(collection(db, 'clients'), where('businessId', '==', user.businessId)))
+      .then(snapshot => {
+        const list = snapshot.docs.map(d => ({
+          id: d.id,
+          ...(d.data() as Omit<Client, 'id'>)
+        }));
+        setClients(list);
+      })
+      .catch(err => console.error('שגיאה בטעינת לקוחות:', err))
+      .finally(() => setLoading(false));
+  }, [user?.businessId]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h1 className="text-2xl font-bold mb-6 text-center">
-            {t('book_appointment') || 'קביעת תור'}
-          </h1>
-
-          <form onSubmit={handleSubmit}>
-            {step === 1 && (
-              <div className="mb-6">
-                <label className="block text-gray-700 mb-2">
-                  {t('select_service') || 'בחרי שירות'}
-                </label>
-                <select
-                  value={selectedService}
-                  onChange={(e) => setSelectedService(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-4 py-2"
-                  required
-                >
-                  <option value="">-- בחרי --</option>
-                  {services.map((service: Service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {step === 2 && (
-              <>
-                <div className="mb-6">
-                  <label className="block text-gray-700 mb-2">
-                    {t('select_date') || 'בחרי תאריך'}
-                  </label>
-                  <Calendar
-                    onChange={(date) => setSelectedDate(date as Date)}
-                    value={selectedDate}
-                    minDate={new Date()}
-                    locale="he"
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="mb-6">
-                  <label className="block text-gray-700 mb-2">
-                    {t('select_time') || 'בחרי שעה'}
-                  </label>
-                  <select
-                    value={selectedTime}
-                    onChange={(e) => setSelectedTime(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                    required
-                  >
-                    <option value="">-- בחרי שעה --</option>
-                    {availableTimes.map((time) => (
-                      <option key={time} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">
-                    {t('name') || 'שם מלא'}
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">
-                    {t('phone') || 'טלפון'}
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">
-                    {t('email') || 'אימייל (לא חובה)'}
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">
-                    {t('notes') || 'הערות'}
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="flex justify-end mt-6">
-              <button
-                type="submit"
-                disabled={isNextDisabled()}
-                className={`bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors ${
-                  isNextDisabled() ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {step < 3 ? t('next') || 'הבא' : t('book') || 'שלחי תור'}
-              </button>
-            </div>
-          </form>
-        </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-6">{t('clients.title', 'לקוחות')}</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        {loading ? (
+          <p className="text-gray-500">{t('loading', 'טוען...')}</p>
+        ) : clients.length === 0 ? (
+          <p className="text-gray-600">{t('clients.noClients', 'לא נמצאו לקוחות.')}</p>
+        ) : (
+          <ul className="space-y-4">
+            {clients.map(client => (
+              <li key={client.id} className="border-b pb-2">
+                <p className="font-semibold">{client.name}</p>
+                <p className="text-sm text-gray-600">{client.phone}</p>
+                {client.email && <p className="text-sm text-gray-500">{client.email}</p>}
+                {client.created && (
+                  <p className="text-xs text-gray-400">
+                    נוצר בתאריך: {client.created.toDate().toLocaleDateString('he-IL')}
+                  </p>
+                )}
+                <p className="text-xs text-gray-400">הגעות: {client.visitCount}</p>
+                <p className="text-xs text-gray-400">סה"כ שילם: ₪{client.totalAmount}</p>
+                <p className="text-xs text-gray-400">סטטוס: {client.status}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
 };
 
-export default BookPage;
+export default ClientsPage;
