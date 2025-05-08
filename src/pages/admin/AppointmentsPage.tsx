@@ -24,6 +24,7 @@ const AppointmentsPage: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
+  const [appointmentSent, setAppointmentSent] = useState(false); // מצב חדש
 
   useEffect(() => {
     const fetchAppointments = async () => {
