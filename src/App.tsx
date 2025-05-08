@@ -42,7 +42,7 @@ function App() {
         {/* Public routes with layout */}
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<Home />} />
-          <Route path=":ownerId/book" element={<BookPage />} />
+          <Route path=":ownerId/book" element={<BookPage />} />  {/* נתיב דינמי שכולל את ownerId */}
           <Route path="confirmation" element={<ConfirmationPage />} />
           <Route path="thank-you" element={<ThankYouPage />} />
           <Route path="appointment-sent" element={<AppointmentSentPage />} />
