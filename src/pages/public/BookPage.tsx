@@ -15,7 +15,6 @@ import {
   Timestamp,
   doc,
   setDoc,
-  updateDoc,
   increment,
 } from 'firebase/firestore';
 import { Service } from '../../types';
@@ -147,7 +146,7 @@ const BookPage: React.FC = () => {
         { merge: true }
       );
 
-      navigate('/confirmation', {
+      navigate('/appointment-sent', {
         state: { appointment, client: { name, phone, email, notes }, service },
       });
     } catch (error) {
