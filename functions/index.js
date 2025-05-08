@@ -49,7 +49,7 @@ exports.notifyClientBySMS = functions.firestore
     const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
 
     let body;
-    if (after.status === "confirmed") {
+    if (["confirmed", "approved"].includes(after.status)) {
       const time = after.startTime?.toDate?.().toLocaleString("he-IL") || "מועד לא ידוע";
       body = `התור שלך אושר למועד ${time}`;
     } else if (["cancelled", "rejected"].includes(after.status)) {
@@ -75,7 +75,7 @@ exports.sendAppointmentReminders = functions.pubsub
 
     const snapshot = await admin.firestore()
       .collection("appointments")
-      .where("status", "==", "confirmed")
+      .where("status", "in", ["confirmed", "approved"])
       .where("startTime", ">=", now)
       .get();
 
@@ -115,5 +115,6 @@ exports.sendAppointmentReminders = functions.pubsub
         }
       }
     }
+
     return null;
   });
