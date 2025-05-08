@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import Calendar from 'react-calendar';
@@ -6,7 +6,18 @@ import 'react-calendar/dist/Calendar.css';
 import { format } from 'date-fns';
 import useStore from '../../store/useStore';
 import { db } from '../../lib/firebase';
-import { collection, addDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  Timestamp,
+  doc,
+  setDoc,
+  updateDoc,
+  increment,
+} from 'firebase/firestore';
 import { Service } from '../../types';
 
 const BookPage: React.FC = () => {
@@ -56,6 +67,12 @@ const BookPage: React.FC = () => {
     setAvailableTimes(available);
   }, [selectedDate, selectedService]);
 
+  const determineClientStatus = (visits: number): string => {
+    if (visits >= 10) return 'VIP';
+    if (visits >= 3) return 'קבוע';
+    return 'מזדמן';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -99,6 +116,37 @@ const BookPage: React.FC = () => {
 
     try {
       await addDoc(collection(db, 'appointments'), appointment);
+
+      const clientRef = doc(db, 'clients', `${ownerId}_${phone}`);
+      const clientSnap = await getDocs(
+        query(collection(db, 'clients'), where('businessId', '==', ownerId), where('phone', '==', phone))
+      );
+
+      let currentVisits = 0;
+
+      if (!clientSnap.empty) {
+        const docData = clientSnap.docs[0].data();
+        currentVisits = docData.visits || 0;
+      }
+
+      const newVisits = currentVisits + 1;
+      const status = determineClientStatus(newVisits);
+
+      await setDoc(
+        clientRef,
+        {
+          businessId: ownerId,
+          name,
+          phone,
+          email,
+          notes,
+          visits: increment(1),
+          totalPayments: increment(0),
+          status,
+        },
+        { merge: true }
+      );
+
       navigate('/confirmation', {
         state: { appointment, client: { name, phone, email, notes }, service },
       });
@@ -119,23 +167,16 @@ const BookPage: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h1 className="text-2xl font-bold mb-6 text-center">{t('book_appointment') || 'קביעת תור'}</h1>
-
-          <div className="flex justify-center mb-8">
-            <div className="flex items-center space-x-4 rtl:space-x-reverse">
-              {[1, 2, 3].map((i) => (
-                <React.Fragment key={i}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= i ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{i}</div>
-                  {i < 3 && <div className={`w-16 h-1 ${step > i ? 'bg-primary-600' : 'bg-gray-200'}`} />}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold mb-6 text-center">
+            {t('book_appointment') || 'קביעת תור'}
+          </h1>
 
           <form onSubmit={handleSubmit}>
             {step === 1 && (
               <div className="mb-6">
-                <label className="block text-gray-700 mb-2">{t('select_service') || 'בחרי שירות'}</label>
+                <label className="block text-gray-700 mb-2">
+                  {t('select_service') || 'בחרי שירות'}
+                </label>
                 <select
                   value={selectedService}
                   onChange={(e) => setSelectedService(e.target.value)}
@@ -155,7 +196,9 @@ const BookPage: React.FC = () => {
             {step === 2 && (
               <>
                 <div className="mb-6">
-                  <label className="block text-gray-700 mb-2">{t('select_date') || 'בחרי תאריך'}</label>
+                  <label className="block text-gray-700 mb-2">
+                    {t('select_date') || 'בחרי תאריך'}
+                  </label>
                   <Calendar
                     onChange={(date) => setSelectedDate(date as Date)}
                     value={selectedDate}
@@ -166,7 +209,9 @@ const BookPage: React.FC = () => {
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-gray-700 mb-2">{t('select_time') || 'בחרי שעה'}</label>
+                  <label className="block text-gray-700 mb-2">
+                    {t('select_time') || 'בחרי שעה'}
+                  </label>
                   <select
                     value={selectedTime}
                     onChange={(e) => setSelectedTime(e.target.value)}
@@ -187,7 +232,9 @@ const BookPage: React.FC = () => {
             {step === 3 && (
               <>
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">{t('name') || 'שם מלא'}</label>
+                  <label className="block text-gray-700 mb-1">
+                    {t('name') || 'שם מלא'}
+                  </label>
                   <input
                     type="text"
                     value={name}
@@ -198,7 +245,9 @@ const BookPage: React.FC = () => {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">{t('phone') || 'טלפון'}</label>
+                  <label className="block text-gray-700 mb-1">
+                    {t('phone') || 'טלפון'}
+                  </label>
                   <input
                     type="tel"
                     value={phone}
@@ -209,7 +258,9 @@ const BookPage: React.FC = () => {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">{t('email') || 'אימייל (לא חובה)'}</label>
+                  <label className="block text-gray-700 mb-1">
+                    {t('email') || 'אימייל (לא חובה)'}
+                  </label>
                   <input
                     type="email"
                     value={email}
@@ -219,7 +270,9 @@ const BookPage: React.FC = () => {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">{t('notes') || 'הערות'}</label>
+                  <label className="block text-gray-700 mb-1">
+                    {t('notes') || 'הערות'}
+                  </label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -233,7 +286,9 @@ const BookPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isNextDisabled()}
-                className={`bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors ${isNextDisabled() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors ${
+                  isNextDisabled() ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 {step < 3 ? t('next') || 'הבא' : t('book') || 'שלחי תור'}
               </button>
