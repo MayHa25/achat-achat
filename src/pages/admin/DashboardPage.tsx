@@ -17,6 +17,8 @@ import {
   query,
   where,
   getDocs,
+  doc,
+  getDoc,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -42,6 +44,7 @@ const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useStore();
   const businessId = user?.businessId;
+  const [ownerName, setOwnerName] = useState<string>(''); // State עבור שם בעלת העסק
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -53,6 +56,13 @@ const DashboardPage: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Fetch owner name
+        const ownerDocRef = doc(db, "users", businessId);
+        const ownerDoc = await getDoc(ownerDocRef);
+        if (ownerDoc.exists()) {
+          setOwnerName(ownerDoc.data().name || "ישראל"); // הגדרת שם בעלת העסק
+        }
+
         // Fetch appointments
         const apptQuery = query(
           collection(db, "appointments"),
@@ -122,7 +132,7 @@ const DashboardPage: React.FC = () => {
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          {t("welcome_message", { name: user?.name || "ישראל" })}
+          {t("welcome_message", { name: ownerName || "ישראל" })} {/* הצגת שם בעלת העסק */}
         </h1>
         <p className="text-gray-600">
           הנה סקירה של העסק שלך להיום,{" "}
@@ -130,6 +140,7 @@ const DashboardPage: React.FC = () => {
         </p>
       </div>
 
+      {/* תצוגת סטטיסטיקות כמו מספר תורים, לקוחות, הכנסות חודשיות */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[
           {
@@ -172,6 +183,7 @@ const DashboardPage: React.FC = () => {
         ))}
       </div>
 
+      {/* תצוגת תורים ולקוחות אחרונים */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
