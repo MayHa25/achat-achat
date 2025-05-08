@@ -15,6 +15,7 @@ import ConfirmationPage from './pages/public/ConfirmationPage';
 import ThankYouPage from './pages/public/ThankYouPage';
 import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
+import AppointmentSentPage from './pages/public/AppointmentSentPage';
 
 // Pages - Admin
 import DashboardPage from './pages/admin/DashboardPage';
@@ -41,9 +42,10 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<Home />} />
-          <Route path=":ownerId/book" element={<BookPage />} /> {/* ✅ נוסף - תיקון נתיב */}
+          <Route path=":ownerId/book" element={<BookPage />} />
           <Route path="confirmation" element={<ConfirmationPage />} />
           <Route path="thank-you" element={<ThankYouPage />} />
+          <Route path="appointment-sent" element={<AppointmentSentPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
         </Route>
