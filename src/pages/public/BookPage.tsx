@@ -141,8 +141,8 @@ const BookPage: React.FC = () => {
           phone,
           email,
           notes,
-          visits: increment(1),
-          totalPayments: increment(0),
+          visits: increment(1),  // עדכון ספירת הגעות
+          totalPayments: increment(0),  // עדכון סכום התשלומים
           status,
         },
         { merge: true }
