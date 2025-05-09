@@ -202,6 +202,13 @@ const BookPage: React.FC = () => {
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
+
+              {/* ✅ תצוגת מחיר השירות */}
+              {selectedService && (
+                <p className="mt-2 text-sm text-gray-700">
+                  מחיר השירות: ₪{services.find(s => s.id === selectedService)?.price || 'לא זמין'}
+                </p>
+              )}
             </div>
           )}
 

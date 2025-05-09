@@ -6,16 +6,12 @@ import {
   query,
   where,
   onSnapshot,
-  getDocs,
   getDoc,
   updateDoc,
   deleteDoc,
   doc,
   increment,
-  writeBatch,
-  deleteField,
   Timestamp,
-  QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
@@ -38,7 +34,6 @@ const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // מאזין ללקוחות בזמן אמת
   useEffect(() => {
     if (!user?.businessId) return;
     setLoading(true);
@@ -64,14 +59,12 @@ const ClientsPage: React.FC = () => {
     return () => unsubscribe();
   }, [user?.businessId]);
 
-  // קובע סטטוס לפי מספר הביקורים
   const determineClientStatus = (visitCount: number): string => {
     if (visitCount >= 5) return 'VIP';
     if (visitCount >= 3) return 'קבוע';
     return 'מזדמן';
   };
 
-  // מעדכן סטטיסטיקות של לקוח בודד
   const updateClientData = async (clientId: string, amount: number) => {
     const clientRef = doc(db, 'clients', clientId);
     const snap = await getDoc(clientRef);
@@ -86,32 +79,6 @@ const ClientsPage: React.FC = () => {
     });
   };
 
-  // משחרר את businessId מכל הלקוחות ומיועד אותו ללקוח חדש
-  const reassignBusinessId = async (newClientId: string) => {
-    if (!user?.businessId) return;
-    const batch = writeBatch(db);
-
-    // שולף את כל הלקוחות שמשויכים כרגע אליך
-    const prevSnap = await getDocs(
-      query(collection(db, 'clients'), where('businessId', '==', user.businessId))
-    );
-    prevSnap.docs.forEach((docSnap: QueryDocumentSnapshot) => {
-      if (docSnap.id !== newClientId) {
-        batch.update(doc(db, 'clients', docSnap.id), {
-          businessId: deleteField()
-        });
-      }
-    });
-
-    // מייחס את ה-businessId ללקוח החדש
-    batch.update(doc(db, 'clients', newClientId), {
-      businessId: user.businessId
-    });
-
-    await batch.commit();
-  };
-
-  // מחיקת לקוח
   const handleDeleteClient = async (clientId: string) => {
     if (!window.confirm('האם אתה בטוח שברצונך למחוק את הלקוח?')) return;
     try {
