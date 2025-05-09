@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
-import { format } from 'date-fns';
-import useStore from '../../store/useStore';
-import { db } from '../../lib/firebase';
+// src/pages/public/BookPage.tsx
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+import { format } from "date-fns";
+import useStore from "../../store/useStore";
+import { db } from "../../lib/firebase";
 import {
   collection,
   addDoc,
@@ -16,144 +19,138 @@ import {
   doc,
   setDoc,
   increment,
-} from 'firebase/firestore';
-import { Service } from '../../types';
+} from "firebase/firestore";
+import { Service } from "../../types";
 
 const BookPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { ownerId } = useParams<{ ownerId: string }>();
-  const { services, setServices } = useStore();
+  const { user, services, setServices } = useStore();
+  const businessId = user?.businessId;
 
-  const [selectedService, setSelectedService] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedTime, setSelectedTime] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [notes, setNotes] = useState('');
+  const [selectedService, setSelectedService] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTime, setSelectedTime] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [notes, setNotes] = useState("");
   const [step, setStep] = useState(1);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
 
+  // Load services for this business
   useEffect(() => {
-    const fetchServices = async () => {
-      if (!ownerId) return;
-      const q = query(collection(db, 'services'), where('businessId', '==', ownerId));
-      const snapshot = await getDocs(q);
-      const loaded: Service[] = snapshot.docs.map(doc => ({
-        ...(doc.data() as Omit<Service, 'id'>),
-        id: doc.id,
-      }));
-      setServices(loaded);
-    };
+    if (!businessId) return;
+    (async () => {
+      const q = query(
+        collection(db, "services"),
+        where("businessId", "==", businessId)
+      );
+      const snap = await getDocs(q);
+      setServices(
+        snap.docs.map((d) => ({
+          ...(d.data() as Omit<Service, "id">),
+          id: d.id,
+        }))
+      );
+    })();
+  }, [businessId, setServices]);
 
-    fetchServices();
-  }, [ownerId, setServices]);
-
+  // Compute available time slots
   useEffect(() => {
     if (!selectedDate || !selectedService) {
       setAvailableTimes([]);
       return;
     }
-
-    const timeSlots = [
-      '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-      '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+    const slots = [
+      "09:00","09:30","10:00","10:30","11:00","11:30",
+      "12:00","12:30","13:00","13:30","14:00","14:30",
+      "15:00","15:30","16:00","16:30","17:00","17:30",
     ];
-
-    const available = timeSlots.filter((_, index) => index % 3 !== 0);
-    setAvailableTimes(available);
+    setAvailableTimes(slots.filter((_, i) => i % 3 !== 0));
   }, [selectedDate, selectedService]);
 
   const determineClientStatus = (visits: number): string => {
-    if (visits >= 10) return 'VIP';
-    if (visits >= 3) return 'קבוע';
-    return 'מזדמן';
+    if (visits >= 10) return "VIP";
+    if (visits >= 3) return "קבוע";
+    return "מזדמן";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!ownerId) {
-      alert("שגיאה: לא נמצא מזהה של בעלת העסק (ownerId).");
+    if (!businessId) {
+      alert("אין מזהה עסק. אנא התחברי מחדש.");
       return;
     }
-
     if (step < 3) {
       setStep(step + 1);
       return;
     }
-
     if (!selectedService || !selectedDate || !selectedTime || !name || !phone) {
-      alert("חסרים שדות חובה. אנא ודאי שכל המידע מולא.");
+      alert("חסרים שדות חובה. אנא בדקי שוב.");
       return;
     }
 
-    const datetimeStr = `${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`;
+    const datetimeStr = `${format(selectedDate, "yyyy-MM-dd")}T${selectedTime}`;
     const appointmentDate = new Date(datetimeStr);
-
     if (isNaN(appointmentDate.getTime())) {
       alert(`שעת התור שגויה: ${datetimeStr}`);
       return;
     }
 
-    const service = services.find((s) => s.id === selectedService);
-
+    const svc = services.find((s) => s.id === selectedService);
     const appointment = {
-      businessId: ownerId,  // הוספת businessId לתור
+      businessId,
       clientName: name,
       clientPhone: phone,
       clientEmail: email,
       serviceId: selectedService,
-      serviceName: service?.name || '',
+      serviceName: svc?.name || "",
       startTime: Timestamp.fromDate(appointmentDate),
-      status: 'pending',
-      paymentStatus: 'pending',
+      status: "pending",
+      paymentStatus: "pending",
       notes,
     };
 
     try {
-      // שמירת התור
-      await addDoc(collection(db, 'appointments'), appointment);
+      // Save appointment
+      await addDoc(collection(db, "appointments"), appointment);
 
-      // עדכון הלקוח
-      const clientRef = doc(db, 'clients', `${ownerId}_${phone}`);
-      const clientSnap = await getDocs(
-        query(collection(db, 'clients'), where('businessId', '==', ownerId), where('phone', '==', phone))
+      // Upsert client
+      const clientsCol = collection(db, "clients");
+      const clientQ = query(
+        clientsCol,
+        where("businessId", "==", businessId),
+        where("phone", "==", phone)
       );
+      const clientSnap = await getDocs(clientQ);
+      const currentVisits = clientSnap.empty
+        ? 0
+        : ((clientSnap.docs[0].data().visits as number) || 0);
+      const status = determineClientStatus(currentVisits + 1);
 
-      let currentVisits = 0;
-
-      if (!clientSnap.empty) {
-        const docData = clientSnap.docs[0].data();
-        currentVisits = docData.visits || 0;
-      }
-
-      const newVisits = currentVisits + 1;
-      const status = determineClientStatus(newVisits);
-
+      const clientDocId = `${businessId}_${phone}`;
       await setDoc(
-        clientRef,
+        doc(db, "clients", clientDocId),
         {
-          businessId: ownerId,  // הוספת businessId גם כאן
+          businessId,
           name,
           phone,
           email,
           notes,
-          visits: increment(1),  // עדכון ספירת הגעות
-          totalPayments: increment(0),  // עדכון סכום התשלומים
+          visits: increment(1),
+          totalPayments: increment(0),
           status,
+          updatedAt: Timestamp.now(),
         },
         { merge: true }
       );
 
-      navigate('/appointment-sent', {
-        state: { appointment, client: { name, phone, email, notes }, service },
+      navigate("/appointment-sent", {
+        state: { appointment, client: { name, phone, email, notes }, svc },
       });
-    } catch (error) {
-      console.error('שגיאה בשמירת התור:', error);
-      alert('אירעה שגיאה בשמירת התור. נסי שוב.');
+    } catch {
+      alert("אירעה שגיאה. אנא נסי שוב.");
     }
   };
 
@@ -166,136 +163,119 @@ const BookPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h1 className="text-2xl font-bold mb-6 text-center">
-            {t('book_appointment') || 'קביעת תור'}
-          </h1>
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 className="text-2xl font-bold mb-6 text-center">
+          {t("book_appointment") || "קביעת תור"}
+        </h1>
+        <form onSubmit={handleSubmit}>
+          {step === 1 && (
+            <div className="mb-6">
+              <label className="block mb-2">{t("select_service") || "בחרי שירות"}</label>
+              <select
+                value={selectedService}
+                onChange={(e) => setSelectedService(e.target.value)}
+                className="w-full border-gray-300 rounded px-4 py-2"
+                required
+              >
+                <option value="">-- בחרי --</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit}>
-            {step === 1 && (
+          {step === 2 && (
+            <>
               <div className="mb-6">
-                <label className="block text-gray-700 mb-2">
-                  {t('select_service') || 'בחרי שירות'}
-                </label>
+                <label className="block mb-2">{t("select_date") || "בחרי תאריך"}</label>
+                <Calendar
+                  value={selectedDate}
+                  onChange={(value) => {
+                    // cast to Date | Date[]
+                    const val = value as Date | Date[];
+                    const date = Array.isArray(val) ? val[0] : val;
+                    setSelectedDate(date);
+                  }}
+                  minDate={new Date()}
+                  locale="he"
+                />
+              </div>
+              <div className="mb-6">
+                <label className="block mb-2">{t("select_time") || "בחרי שעה"}</label>
                 <select
-                  value={selectedService}
-                  onChange={(e) => setSelectedService(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-4 py-2"
+                  value={selectedTime}
+                  onChange={(e) => setSelectedTime(e.target.value)}
+                  className="w-full border-gray-300 rounded px-4 py-2"
                   required
                 >
-                  <option value="">-- בחרי --</option>
-                  {services.map((service: Service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name}
+                  <option value="">-- בחרי שעה --</option>
+                  {availableTimes.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
+            </>
+          )}
 
-            {step === 2 && (
-              <>
-                <div className="mb-6">
-                  <label className="block text-gray-700 mb-2">
-                    {t('select_date') || 'בחרי תאריך'}
-                  </label>
-                  <Calendar
-                    onChange={(date) => setSelectedDate(date as Date)}
-                    value={selectedDate}
-                    minDate={new Date()}
-                    locale="he"
-                    className="w-full"
-                  />
-                </div>
+          {step === 3 && (
+            <>
+              <div className="mb-4">
+                <label className="block mb-1">{t("name") || "שם מלא"}</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full border-gray-300 rounded px-4 py-2"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block mb-1">{t("phone") || "טלפון"}</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full border-gray-300 rounded px-4 py-2"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block mb-1">{t("email") || "אימייל (לא חובה)"}</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border-gray-300 rounded px-4 py-2"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block mb-1">{t("notes") || "הערות"}</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full border-gray-300 rounded px-4 py-2"
+                />
+              </div>
+            </>
+          )}
 
-                <div className="mb-6">
-                  <label className="block text-gray-700 mb-2">
-                    {t('select_time') || 'בחרי שעה'}
-                  </label>
-                  <select
-                    value={selectedTime}
-                    onChange={(e) => setSelectedTime(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                    required
-                  >
-                    <option value="">-- בחרי שעה --</option>
-                    {availableTimes.map((time) => (
-                      <option key={time} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">
-                    {t('name') || 'שם מלא'}
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">
-                    {t('phone') || 'טלפון'}
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">
-                    {t('email') || 'אימייל (לא חובה)'}
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-1">
-                    {t('notes') || 'הערות'}
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-4 py-2"
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="flex justify-end mt-6">
-              <button
-                type="submit"
-                disabled={isNextDisabled()}
-                className={`bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors ${
-                  isNextDisabled() ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {step < 3 ? t('next') || 'הבא' : t('book') || 'שלחי תור'}
-              </button>
-            </div>
-          </form>
-        </div>
+          <div className="flex justify-end mt-6">
+            <button
+              type="submit"
+              disabled={isNextDisabled()}
+              className={`bg-primary-600 text-white px-6 py-2 rounded hover:bg-primary-700 transition ${
+                isNextDisabled() ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              {step < 3 ? t("next") || "הבא" : t("book") || "שלחי תור"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
