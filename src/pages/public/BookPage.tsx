@@ -27,7 +27,6 @@ const BookPage: React.FC = () => {
   const { ownerId: businessId } = useParams<{ ownerId: string }>();
 
   const [services, setServices] = useState<Service[]>([]);
-  const [slots, setSlots] = useState<string[]>([]);
   const [selectedService, setSelectedService] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("");
@@ -37,6 +36,13 @@ const BookPage: React.FC = () => {
   const [notes, setNotes] = useState<string>("");
   const [step, setStep] = useState<number>(1);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+
+  // Default daily time slots
+  const defaultSlots = [
+    "09:00","09:30","10:00","10:30","11:00","11:30",
+    "12:00","12:30","13:00","13:30","14:00","14:30",
+    "15:00","15:30","16:00","16:30","17:00","17:30",
+  ];
 
   // Load services for this business
   useEffect(() => {
@@ -56,31 +62,15 @@ const BookPage: React.FC = () => {
     })();
   }, [businessId]);
 
-  // Load the allowed slots for this business (e.g. from a 'businesses' doc)
-  useEffect(() => {
-    if (!businessId) return;
-    (async () => {
-      const busQ = query(
-        collection(db, "businesses"),
-        where("businessId", "==", businessId)
-      );
-      const busSnap = await getDocs(busQ);
-      if (!busSnap.empty) {
-        const data = busSnap.docs[0].data();
-        setSlots((data.availableSlots as string[]) || []);
-      }
-    })();
-  }, [businessId]);
-
   // Compute availableTimes when date or service changes
   useEffect(() => {
     if (!selectedDate || !selectedService) {
       setAvailableTimes([]);
       return;
     }
-    // here slots were loaded from Firestore
-    setAvailableTimes(slots);
-  }, [selectedDate, selectedService, slots]);
+    // Always use the defaultSlots (or you can replace with dynamic slots from Firestore)
+    setAvailableTimes(defaultSlots);
+  }, [selectedDate, selectedService]);
 
   const determineClientStatus = (visits: number): string => {
     if (visits >= 10) return "VIP";
@@ -220,7 +210,6 @@ const BookPage: React.FC = () => {
                 <Calendar
                   value={selectedDate}
                   onChange={(value: any, _event: any) => {
-                    // cast ValuePiece to Date|Date[]
                     const val = value as Date | Date[];
                     const date = Array.isArray(val) ? val[0] : val;
                     setSelectedDate(date);
