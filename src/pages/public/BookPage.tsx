@@ -3,11 +3,10 @@
 
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { format } from "date-fns";
-import useStore from "../../store/useStore";
 import { db } from "../../lib/firebase";
 import {
   collection,
@@ -25,17 +24,18 @@ import { Service } from "../../types";
 const BookPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, services, setServices } = useStore();
-  const businessId = user?.businessId;
+  const { ownerId: businessId } = useParams<{ ownerId: string }>();
 
-  const [selectedService, setSelectedService] = useState("");
+  const [services, setServices] = useState<Service[]>([]);
+  const [slots, setSlots] = useState<string[]>([]);
+  const [selectedService, setSelectedService] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedTime, setSelectedTime] = useState("");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [notes, setNotes] = useState("");
-  const [step, setStep] = useState(1);
+  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [name, setName] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [step, setStep] = useState<number>(1);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
 
   // Load services for this business
@@ -48,27 +48,39 @@ const BookPage: React.FC = () => {
       );
       const snap = await getDocs(q);
       setServices(
-        snap.docs.map((d) => ({
+        snap.docs.map(d => ({
           ...(d.data() as Omit<Service, "id">),
           id: d.id,
         }))
       );
     })();
-  }, [businessId, setServices]);
+  }, [businessId]);
 
-  // Compute available time slots
+  // Load the allowed slots for this business (e.g. from a 'businesses' doc)
+  useEffect(() => {
+    if (!businessId) return;
+    (async () => {
+      const busQ = query(
+        collection(db, "businesses"),
+        where("businessId", "==", businessId)
+      );
+      const busSnap = await getDocs(busQ);
+      if (!busSnap.empty) {
+        const data = busSnap.docs[0].data();
+        setSlots((data.availableSlots as string[]) || []);
+      }
+    })();
+  }, [businessId]);
+
+  // Compute availableTimes when date or service changes
   useEffect(() => {
     if (!selectedDate || !selectedService) {
       setAvailableTimes([]);
       return;
     }
-    const slots = [
-      "09:00","09:30","10:00","10:30","11:00","11:30",
-      "12:00","12:30","13:00","13:30","14:00","14:30",
-      "15:00","15:30","16:00","16:30","17:00","17:30",
-    ];
-    setAvailableTimes(slots.filter((_, i) => i % 3 !== 0));
-  }, [selectedDate, selectedService]);
+    // here slots were loaded from Firestore
+    setAvailableTimes(slots);
+  }, [selectedDate, selectedService, slots]);
 
   const determineClientStatus = (visits: number): string => {
     if (visits >= 10) return "VIP";
@@ -79,7 +91,7 @@ const BookPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!businessId) {
-      alert("אין מזהה עסק. אנא התחברי מחדש.");
+      alert("שגיאה: לא נמצא מזהה העסק בכתובת.");
       return;
     }
     if (step < 3) {
@@ -97,37 +109,48 @@ const BookPage: React.FC = () => {
       alert(`שעת התור שגויה: ${datetimeStr}`);
       return;
     }
+    const appointmentTs = Timestamp.fromDate(appointmentDate);
 
-    const svc = services.find((s) => s.id === selectedService);
+    // Prevent conflicts
+    const conflictQ = query(
+      collection(db, "appointments"),
+      where("businessId", "==", businessId),
+      where("startTime", "==", appointmentTs)
+    );
+    const conflictSnap = await getDocs(conflictQ);
+    if (!conflictSnap.empty) {
+      alert("מצטערים, התור בשעה זו כבר תפוס. אנא בחרי זמן אחר.");
+      return;
+    }
+
+    // Build and save appointment
+    const service = services.find(s => s.id === selectedService);
     const appointment = {
       businessId,
       clientName: name,
       clientPhone: phone,
       clientEmail: email,
       serviceId: selectedService,
-      serviceName: svc?.name || "",
-      startTime: Timestamp.fromDate(appointmentDate),
+      serviceName: service?.name || "",
+      startTime: appointmentTs,
       status: "pending",
       paymentStatus: "pending",
       notes,
     };
-
     try {
-      // Save appointment
       await addDoc(collection(db, "appointments"), appointment);
 
-      // Upsert client
-      const clientsCol = collection(db, "clients");
+      // Upsert client record
       const clientQ = query(
-        clientsCol,
+        collection(db, "clients"),
         where("businessId", "==", businessId),
         where("phone", "==", phone)
       );
       const clientSnap = await getDocs(clientQ);
-      const currentVisits = clientSnap.empty
+      const visits = clientSnap.empty
         ? 0
         : ((clientSnap.docs[0].data().visits as number) || 0);
-      const status = determineClientStatus(currentVisits + 1);
+      const status = determineClientStatus(visits + 1);
 
       const clientDocId = `${businessId}_${phone}`;
       await setDoc(
@@ -147,9 +170,10 @@ const BookPage: React.FC = () => {
       );
 
       navigate("/appointment-sent", {
-        state: { appointment, client: { name, phone, email, notes }, svc },
+        state: { appointment, client: { name, phone, email, notes }, service },
       });
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("אירעה שגיאה. אנא נסי שוב.");
     }
   };
@@ -163,25 +187,25 @@ const BookPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
         <h1 className="text-2xl font-bold mb-6 text-center">
           {t("book_appointment") || "קביעת תור"}
         </h1>
         <form onSubmit={handleSubmit}>
           {step === 1 && (
             <div className="mb-6">
-              <label className="block mb-2">{t("select_service") || "בחרי שירות"}</label>
+              <label className="block mb-2">
+                {t("select_service") || "בחרי שירות"}
+              </label>
               <select
                 value={selectedService}
-                onChange={(e) => setSelectedService(e.target.value)}
+                onChange={e => setSelectedService(e.target.value)}
                 className="w-full border-gray-300 rounded px-4 py-2"
                 required
               >
                 <option value="">-- בחרי --</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                {services.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>
@@ -190,11 +214,13 @@ const BookPage: React.FC = () => {
           {step === 2 && (
             <>
               <div className="mb-6">
-                <label className="block mb-2">{t("select_date") || "בחרי תאריך"}</label>
+                <label className="block mb-2">
+                  {t("select_date") || "בחרי תאריך"}
+                </label>
                 <Calendar
                   value={selectedDate}
-                  onChange={(value) => {
-                    // cast to Date | Date[]
+                  onChange={(value: any, _event: any) => {
+                    // cast ValuePiece to Date|Date[]
                     const val = value as Date | Date[];
                     const date = Array.isArray(val) ? val[0] : val;
                     setSelectedDate(date);
@@ -204,18 +230,18 @@ const BookPage: React.FC = () => {
                 />
               </div>
               <div className="mb-6">
-                <label className="block mb-2">{t("select_time") || "בחרי שעה"}</label>
+                <label className="block mb-2">
+                  {t("select_time") || "בחרי שעה"}
+                </label>
                 <select
                   value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
+                  onChange={e => setSelectedTime(e.target.value)}
                   className="w-full border-gray-300 rounded px-4 py-2"
                   required
                 >
                   <option value="">-- בחרי שעה --</option>
-                  {availableTimes.map((time) => (
-                    <option key={time} value={time}>
-                      {time}
-                    </option>
+                  {availableTimes.map(time => (
+                    <option key={time} value={time}>{time}</option>
                   ))}
                 </select>
               </div>
@@ -229,7 +255,7 @@ const BookPage: React.FC = () => {
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={e => setName(e.target.value)}
                   className="w-full border-gray-300 rounded px-4 py-2"
                   required
                 />
@@ -239,7 +265,7 @@ const BookPage: React.FC = () => {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={e => setPhone(e.target.value)}
                   className="w-full border-gray-300 rounded px-4 py-2"
                   required
                 />
@@ -249,7 +275,7 @@ const BookPage: React.FC = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={e => setEmail(e.target.value)}
                   className="w-full border-gray-300 rounded px-4 py-2"
                 />
               </div>
@@ -257,7 +283,7 @@ const BookPage: React.FC = () => {
                 <label className="block mb-1">{t("notes") || "הערות"}</label>
                 <textarea
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={e => setNotes(e.target.value)}
                   className="w-full border-gray-300 rounded px-4 py-2"
                 />
               </div>
