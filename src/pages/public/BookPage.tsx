@@ -15,7 +15,6 @@ import {
   query,
   where,
   Timestamp,
-  doc,
   setDoc,
   increment,
 } from "firebase/firestore";
@@ -37,14 +36,12 @@ const BookPage: React.FC = () => {
   const [step, setStep] = useState<number>(1);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
 
-  // Default daily time slots
   const defaultSlots = [
     "09:00","09:30","10:00","10:30","11:00","11:30",
     "12:00","12:30","13:00","13:30","14:00","14:30",
     "15:00","15:30","16:00","16:30","17:00","17:30",
   ];
 
-  // Load services for this business
   useEffect(() => {
     if (!businessId) return;
     (async () => {
@@ -62,13 +59,11 @@ const BookPage: React.FC = () => {
     })();
   }, [businessId]);
 
-  // Compute availableTimes when date or service changes
   useEffect(() => {
     if (!selectedDate || !selectedService) {
       setAvailableTimes([]);
       return;
     }
-    // Always use the defaultSlots (or you can replace with dynamic slots from Firestore)
     setAvailableTimes(defaultSlots);
   }, [selectedDate, selectedService]);
 
@@ -101,7 +96,6 @@ const BookPage: React.FC = () => {
     }
     const appointmentTs = Timestamp.fromDate(appointmentDate);
 
-    // Prevent conflicts
     const conflictQ = query(
       collection(db, "appointments"),
       where("businessId", "==", businessId),
@@ -113,7 +107,6 @@ const BookPage: React.FC = () => {
       return;
     }
 
-    // Build and save appointment
     const service = services.find(s => s.id === selectedService);
     const appointment = {
       businessId,
@@ -127,37 +120,48 @@ const BookPage: React.FC = () => {
       paymentStatus: "pending",
       notes,
     };
+
     try {
       await addDoc(collection(db, "appointments"), appointment);
 
-      // Upsert client record
       const clientQ = query(
         collection(db, "clients"),
         where("businessId", "==", businessId),
         where("phone", "==", phone)
       );
       const clientSnap = await getDocs(clientQ);
-      const visits = clientSnap.empty
-        ? 0
-        : ((clientSnap.docs[0].data().visits as number) || 0);
-      const status = determineClientStatus(visits + 1);
 
-      const clientDocId = `${businessId}_${phone}`;
-      await setDoc(
-        doc(db, "clients", clientDocId),
-        {
+      if (clientSnap.empty) {
+        await addDoc(collection(db, "clients"), {
           businessId,
           name,
           phone,
           email,
           notes,
-          visits: increment(1),
-          totalPayments: increment(0),
-          status,
+          visits: 1,
+          totalPayments: 0,
+          status: "מזדמן",
+          createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
-        },
-        { merge: true }
-      );
+        });
+      } else {
+        const clientRef = clientSnap.docs[0].ref;
+        const previousVisits = clientSnap.docs[0].data().visits || 0;
+        const newStatus = determineClientStatus(previousVisits + 1);
+
+        await setDoc(
+          clientRef,
+          {
+            name,
+            email,
+            notes,
+            visits: increment(1),
+            status: newStatus,
+            updatedAt: Timestamp.now(),
+          },
+          { merge: true }
+        );
+      }
 
       navigate("/appointment-sent", {
         state: { appointment, client: { name, phone, email, notes }, service },

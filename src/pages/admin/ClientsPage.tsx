@@ -5,6 +5,7 @@ import {
   collection,
   query,
   where,
+  onSnapshot,
   getDocs,
   getDoc,
   updateDoc,
@@ -13,7 +14,8 @@ import {
   increment,
   writeBatch,
   deleteField,
-  Timestamp
+  Timestamp,
+  QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
@@ -36,6 +38,32 @@ const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // מאזין ללקוחות בזמן אמת
+  useEffect(() => {
+    if (!user?.businessId) return;
+    setLoading(true);
+    const q = query(
+      collection(db, 'clients'),
+      where('businessId', '==', user.businessId)
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      snapshot => {
+        const list = snapshot.docs.map(d => ({
+          id: d.id,
+          ...(d.data() as Omit<Client, 'id'>)
+        }));
+        setClients(list);
+        setLoading(false);
+      },
+      err => {
+        console.error('Snapshot error:', err);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [user?.businessId]);
+
   // קובע סטטוס לפי מספר הביקורים
   const determineClientStatus = (visitCount: number): string => {
     if (visitCount >= 5) return 'VIP';
@@ -49,8 +77,7 @@ const ClientsPage: React.FC = () => {
     const snap = await getDoc(clientRef);
     const data = snap.data() || {};
     const currentVisits = typeof data.visitCount === 'number' ? data.visitCount : 0;
-    const newVisits = currentVisits + 1;
-    const status = determineClientStatus(newVisits);
+    const status = determineClientStatus(currentVisits + 1);
 
     await updateDoc(clientRef, {
       visitCount: increment(1),
@@ -59,7 +86,7 @@ const ClientsPage: React.FC = () => {
     });
   };
 
-  // משחרר את businessId מכל הלקוחות הקיימים ומיועד אותו ללקוח החדש
+  // משחרר את businessId מכל הלקוחות ומיועד אותו ללקוח חדש
   const reassignBusinessId = async (newClientId: string) => {
     if (!user?.businessId) return;
     const batch = writeBatch(db);
@@ -68,7 +95,7 @@ const ClientsPage: React.FC = () => {
     const prevSnap = await getDocs(
       query(collection(db, 'clients'), where('businessId', '==', user.businessId))
     );
-    prevSnap.docs.forEach(docSnap => {
+    prevSnap.docs.forEach((docSnap: QueryDocumentSnapshot) => {
       if (docSnap.id !== newClientId) {
         batch.update(doc(db, 'clients', docSnap.id), {
           businessId: deleteField()
@@ -84,32 +111,12 @@ const ClientsPage: React.FC = () => {
     await batch.commit();
   };
 
-  // טוען את רשימת הלקוחות המשויכים אליך
-  const fetchClients = async () => {
-    if (!user?.businessId) return;
-    setLoading(true);
-    try {
-      const snap = await getDocs(query(collection(db, 'clients'), where('businessId', '==', user.businessId)));
-      const list = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Client, 'id'>) }));
-      setClients(list);
-    } catch (err) {
-      console.error('שגיאה בטעינת לקוחות:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchClients();
-  }, [user?.businessId]);
-
   // מחיקת לקוח
   const handleDeleteClient = async (clientId: string) => {
-    const confirm = window.confirm('האם אתה בטוח שברצונך למחוק את הלקוח?');
-    if (!confirm) return;
+    if (!window.confirm('האם אתה בטוח שברצונך למחוק את הלקוח?')) return;
     try {
       await deleteDoc(doc(db, 'clients', clientId));
-      setClients(prev => prev.filter(c => c.id !== clientId));
+      // אין צורך לעדכן state ידנית – ה-onSnapshot כבר יסיר אותו
     } catch (err) {
       console.error('שגיאה במחיקת לקוח:', err);
       alert('אירעה שגיאה במחיקת הלקוח. אנא נסה שוב.');
