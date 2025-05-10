@@ -27,16 +27,20 @@ exports.notifyOwnerOnNewAppointment = functions.firestore
     if (businessDoc.empty) return null;
 
     const owner = businessDoc.docs[0].data();
-    const formattedOwner = owner.phone.startsWith("+") ? owner.phone : `+972${owner.phone.replace(/^0/, "")}`;
-    const formattedClient = data.clientPhone.startsWith("+") ? data.clientPhone : `+972${data.clientPhone.replace(/^0/, "")}`;
+    const formattedOwner = owner.phone?.startsWith("+") ? owner.phone : `+972${owner.phone?.replace(/^0/, "")}`;
+    const formattedClient = data.clientPhone?.startsWith("+") ? data.clientPhone : `+972${data.clientPhone?.replace(/^0/, "")}`;
     const time = data.startTime?.toDate?.().toLocaleString("he-IL") || "מועד לא ידוע";
 
     const ownerMsg = `נכנס תור חדש בתאריך ${time} מ-${data.clientName}`;
-    const clientMsg = `התור שלך בנושא ${data.serviceName || 'שירות'} אצל ${owner.name || 'בעלת העסק'} נקבע ל-${time}. לביטול שלחי את הספרה 1 עד 24 שעות מראש.`
+    const clientMsg = `התור שלך בנושא ${data.serviceName || 'שירות'} אצל ${owner.name || 'בעלת העסק'} נקבע ל-${time}. לביטול שלחי את הספרה 1 עד 24 שעות מראש.`;
 
     try {
-      await client.messages.create({ body: ownerMsg, from: fromPhone, to: formattedOwner });
-      await client.messages.create({ body: clientMsg, from: fromPhone, to: formattedClient });
+      if (formattedOwner) {
+        await client.messages.create({ body: ownerMsg, from: fromPhone, to: formattedOwner });
+      }
+      if (formattedClient) {
+        await client.messages.create({ body: clientMsg, from: fromPhone, to: formattedClient });
+      }
     } catch (error) {
       console.error("שגיאה בשליחת SMS:", error.message || error);
     }
@@ -44,6 +48,7 @@ exports.notifyOwnerOnNewAppointment = functions.firestore
     return null;
   });
 
+// 2. עדכון סטטוס ושיגור SMS ללקוחה
 exports.notifyClientBySMS = functions.firestore
   .document("appointments/{appointmentId}")
   .onUpdate(async (change, context) => {
@@ -76,6 +81,7 @@ exports.notifyClientBySMS = functions.firestore
     return null;
   });
 
+// 3. תזכורות אוטומטיות
 exports.sendAppointmentReminders = functions.pubsub
   .schedule("every 60 minutes")
   .onRun(async () => {
@@ -92,17 +98,21 @@ exports.sendAppointmentReminders = functions.pubsub
     for (const doc of snapshot.docs) {
       const appt = doc.data();
 
+      // תזכורת ללקוחה - יום לפני
       if (Math.abs(appt.startTime.toDate() - oneDayLater.toDate()) < 60 * 60 * 1000) {
         const clientPhone = appt.clientPhone;
-        const formattedClient = clientPhone.startsWith("+") ? clientPhone : `+972${clientPhone.replace(/^0/, "")}`;
+        const formattedClient = clientPhone?.startsWith("+") ? clientPhone : `+972${clientPhone?.replace(/^0/, "")}`;
         const msg = `תזכורת: התור שלך נקבע למחר בשעה ${appt.startTime.toDate().toLocaleTimeString("he-IL")}`;
         try {
-          await client.messages.create({ body: msg, from: fromPhone, to: formattedClient });
+          if (formattedClient) {
+            await client.messages.create({ body: msg, from: fromPhone, to: formattedClient });
+          }
         } catch (err) {
           console.error("שגיאה בשליחת תזכורת ללקוחה:", err);
         }
       }
 
+      // תזכורת לבעלת העסק - שעה לפני
       if (Math.abs(appt.startTime.toDate() - oneHourLater.toDate()) < 30 * 60 * 1000) {
         const ownerDoc = await admin.firestore()
           .collection("users")
@@ -113,10 +123,12 @@ exports.sendAppointmentReminders = functions.pubsub
 
         if (!ownerDoc.empty) {
           const owner = ownerDoc.docs[0].data();
-          const formattedOwner = owner.phone.startsWith("+") ? owner.phone : `+972${owner.phone.replace(/^0/, "")}`;
+          const formattedOwner = owner.phone?.startsWith("+") ? owner.phone : `+972${owner.phone?.replace(/^0/, "")}`;
           const msg = `תזכורת: בעוד שעה יש לך תור עם ${appt.clientName}`;
           try {
-            await client.messages.create({ body: msg, from: fromPhone, to: formattedOwner });
+            if (formattedOwner) {
+              await client.messages.create({ body: msg, from: fromPhone, to: formattedOwner });
+            }
           } catch (err) {
             console.error("שגיאה בשליחת תזכורת לבעלת העסק:", err);
           }
@@ -127,6 +139,7 @@ exports.sendAppointmentReminders = functions.pubsub
     return null;
   });
 
+// 4. קבלת ביטול דרך SMS
 const smsApp = express();
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 
@@ -162,9 +175,11 @@ smsApp.post("/sms", async (req, res) => {
 
         if (!ownerDoc.empty) {
           const owner = ownerDoc.docs[0].data();
-          const formattedOwner = owner.phone.startsWith("+") ? owner.phone : `+972${owner.phone.replace(/^0/, "")}`;
+          const formattedOwner = owner.phone?.startsWith("+") ? owner.phone : `+972${owner.phone?.replace(/^0/, "")}`;
           const message = `הלקוחה ${data.clientName} ביטלה את התור שנקבע ל-${startTime.toLocaleString("he-IL")}`;
-          await client.messages.create({ body: message, from: fromPhone, to: formattedOwner });
+          if (formattedOwner) {
+            await client.messages.create({ body: message, from: fromPhone, to: formattedOwner });
+          }
         }
 
         await client.messages.create({ body: "בחירתך התקבלה. התור בוטל בהצלחה.", from: fromPhone, to: from });
