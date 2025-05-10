@@ -52,8 +52,10 @@ exports.notifyClientBySMS = functions.firestore
     if (["confirmed", "approved"].includes(after.status)) {
       const time = after.startTime?.toDate?.().toLocaleString("he-IL") || "מועד לא ידוע";
       body = `התור שלך אושר למועד ${time}`;
-    } else if (["cancelled", "rejected"].includes(after.status)) {
-      body = "לצערנו התור שלך לא אושר. לפרטים נוספים פני לבעלת העסק.";
+    } else if (["cancelled", "rejected", "cancelled_by_owner"].includes(after.status)) {
+      const time = after.startTime?.toDate?.().toLocaleString("he-IL") || "מועד לא ידוע";
+      const reason = after.cancelReason ? ` סיבה: ${after.cancelReason}` : '';
+      body = `לתשומת לבך: התור שלך בתאריך ${time} בוטל ע\"י בעלת העסק.${reason}`;
     } else return null;
 
     try {

@@ -7,7 +7,7 @@ import {
   query,
   where,
   getDocs,
-  deleteDoc,
+  updateDoc,
   doc,
   Timestamp,
 } from 'firebase/firestore';
@@ -31,7 +31,9 @@ const AppointmentsPage: React.FC = () => {
   const businessId = user?.businessId;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'rejected' | 'cancelled_by_owner'>('all');
+  const [cancelReason, setCancelReason] = useState('');
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -43,19 +45,10 @@ const AppointmentsPage: React.FC = () => {
           where('businessId', '==', businessId)
         );
         const snap = await getDocs(q);
-        const now = Date.now();
-        const oneDayMs = 24 * 60 * 60 * 1000;
-        const valid: Appointment[] = [];
-        for (const docSnap of snap.docs) {
-          const data = docSnap.data() as Omit<Appointment, 'id'>;
-          const appointment: Appointment = { id: docSnap.id, ...data };
-          const startMs = appointment.startTime.toDate().getTime();
-          if (now - startMs > oneDayMs) {
-            await deleteDoc(doc(db, 'appointments', appointment.id));
-          } else {
-            valid.push(appointment);
-          }
-        }
+        const valid: Appointment[] = snap.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Appointment, 'id'>)
+        }));
         setAppointments(valid);
       } catch (error) {
         console.error('שגיאה בטעינת תורים:', error);
@@ -66,14 +59,27 @@ const AppointmentsPage: React.FC = () => {
     fetchAppointments();
   }, [businessId]);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('האם למחוק את התור?')) return;
+  const handleCancelAppointment = async () => {
+    if (!selectedAppointmentId) return;
     try {
-      await deleteDoc(doc(db, 'appointments', id));
-      setAppointments(prev => prev.filter(app => app.id !== id));
+      const ref = doc(db, 'appointments', selectedAppointmentId);
+      await updateDoc(ref, {
+        status: 'cancelled_by_owner',
+        cancelReason,
+      });
+      setAppointments(prev =>
+        prev.map(app =>
+          app.id === selectedAppointmentId
+            ? { ...app, status: 'cancelled_by_owner' }
+            : app
+        )
+      );
+      setCancelReason('');
+      setSelectedAppointmentId(null);
+      alert('התור בוטל ונשמר במערכת כ"בוטל ע"י בעלת העסק".');
     } catch (err) {
-      console.error('שגיאה במחיקת התור:', err);
-      alert('שגיאה במחיקת התור.');
+      console.error('שגיאה בביטול תור:', err);
+      alert('שגיאה בביטול התור.');
     }
   };
 
@@ -100,7 +106,7 @@ const AppointmentsPage: React.FC = () => {
       <h1 className="text-2xl font-bold mb-4">ניהול תורים</h1>
 
       <div className="mb-4 flex gap-2">
-        {['all', 'pending', 'approved', 'rejected'].map(status => (
+        {['all', 'pending', 'approved', 'rejected', 'cancelled_by_owner'].map(status => (
           <button
             key={status}
             onClick={() => setFilter(status as typeof filter)}
@@ -116,7 +122,9 @@ const AppointmentsPage: React.FC = () => {
               ? 'ממתינים'
               : status === 'approved'
               ? 'מאושרים'
-              : 'נדחים'}
+              : status === 'rejected'
+              ? 'נדחים'
+              : 'בוטל ע"י העסק'}
           </button>
         ))}
       </div>
@@ -150,14 +158,30 @@ const AppointmentsPage: React.FC = () => {
                       <strong>הערות:</strong> {app.notes}
                     </p>
                   )}
+                  {app.status === 'cancelled_by_owner' && (
+                    <p className="text-red-600 font-semibold">תור שבוטל ע"י בעלת העסק</p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <button
-                    className="text-red-600 text-sm"
-                    onClick={() => handleDelete(app.id)}
-                  >
-                    מחק תור
-                  </button>
+                  {app.status !== 'cancelled_by_owner' && (
+                    <>
+                      <textarea
+                        placeholder="סיבת הביטול (לא חובה)"
+                        className="text-sm border rounded p-1"
+                        value={selectedAppointmentId === app.id ? cancelReason : ''}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                      />
+                      <button
+                        className="bg-red-600 text-white px-4 py-1 rounded hover:bg-red-700 transition"
+                        onClick={() => {
+                          setSelectedAppointmentId(app.id);
+                          handleCancelAppointment();
+                        }}
+                      >
+                        בטלי תור
+                      </button>
+                    </>
+                  )}
                 </div>
               </li>
             ))}
