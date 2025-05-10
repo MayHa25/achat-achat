@@ -1,9 +1,16 @@
-// src/pages/admin/AppointmentsPage.tsx
 "use client";
 
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { collection, query, where, getDocs, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  doc,
+  Timestamp,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import useStore from '../../store/useStore';
 import { format } from 'date-fns';
@@ -43,7 +50,6 @@ const AppointmentsPage: React.FC = () => {
           const data = docSnap.data() as Omit<Appointment, 'id'>;
           const appointment: Appointment = { id: docSnap.id, ...data };
           const startMs = appointment.startTime.toDate().getTime();
-          // delete if older than 1 day
           if (now - startMs > oneDayMs) {
             await deleteDoc(doc(db, 'appointments', appointment.id));
           } else {
@@ -59,19 +65,6 @@ const AppointmentsPage: React.FC = () => {
     };
     fetchAppointments();
   }, [businessId]);
-
-  const updateAppointmentStatus = async (id: string, newStatus: 'approved' | 'rejected') => {
-    try {
-      const ref = doc(db, 'appointments', id);
-      await updateDoc(ref, { status: newStatus });
-      setAppointments(prev =>
-        prev.map(app => (app.id === id ? { ...app, status: newStatus } : app))
-      );
-    } catch (err) {
-      console.error('שגיאה בעדכון סטטוס התור:', err);
-      alert('שגיאה בעדכון סטטוס התור.');
-    }
-  };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('האם למחוק את התור?')) return;
@@ -159,22 +152,6 @@ const AppointmentsPage: React.FC = () => {
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
-                  {app.status === 'pending' && (
-                    <>
-                      <button
-                        className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition"
-                        onClick={() => updateAppointmentStatus(app.id, 'approved')}
-                      >
-                        אשרי
-                      </button>
-                      <button
-                        className="bg-red-600 text-white px-4 py-1 rounded hover:bg-red-700 transition"
-                        onClick={() => updateAppointmentStatus(app.id, 'rejected')}
-                      >
-                        דחייה
-                      </button>
-                    </>
-                  )}
                   <button
                     className="text-red-600 text-sm"
                     onClick={() => handleDelete(app.id)}
