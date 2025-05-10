@@ -1,6 +1,8 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const twilio = require("twilio");
+const express = require("express");
+const bodyParser = require("body-parser");
 
 admin.initializeApp();
 
@@ -56,6 +58,8 @@ exports.notifyClientBySMS = functions.firestore
       const time = after.startTime?.toDate?.().toLocaleString("he-IL") || "מועד לא ידוע";
       const reason = after.cancelReason ? ` סיבה: ${after.cancelReason}` : '';
       body = `לתשומת לבך: התור שלך בתאריך ${time} בוטל ע\"י בעלת העסק.${reason}`;
+    } else if (after.status === "cancelled_by_client") {
+      body = "בחירתך התקבלה. התור בוטל בהצלחה.";
     } else return null;
 
     try {
@@ -67,7 +71,7 @@ exports.notifyClientBySMS = functions.firestore
     return null;
   });
 
-// 3. תזכורות יומיות אוטומטיות
+// 3. תזכורות אוטומטיות
 exports.sendAppointmentReminders = functions.pubsub
   .schedule("every 60 minutes")
   .onRun(async () => {
@@ -120,3 +124,62 @@ exports.sendAppointmentReminders = functions.pubsub
 
     return null;
   });
+
+// 4. קבלת SMS מהלקוחה לצורך ביטול
+const smsApp = express();
+smsApp.use(bodyParser.urlencoded({ extended: false }));
+
+smsApp.post("/sms", async (req, res) => {
+  const incomingMsg = req.body.Body?.trim();
+  const from = req.body.From;
+
+  if (incomingMsg === "1") {
+    const phone = from.startsWith("+972") ? "0" + from.slice(4) : from;
+    const now = new Date();
+
+    const snapshot = await admin.firestore()
+      .collection("appointments")
+      .where("clientPhone", "==", phone)
+      .where("status", "==", "pending")
+      .get();
+
+    let cancelled = false;
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const startTime = data.startTime.toDate();
+      if ((startTime.getTime() - now.getTime()) >= 24 * 60 * 60 * 1000) {
+        await admin.firestore().collection("appointments").doc(doc.id).update({
+          status: "cancelled_by_client"
+        });
+
+        // הודעה לבעלת העסק
+        const ownerDoc = await admin.firestore()
+          .collection("users")
+          .where("businessId", "==", data.businessId)
+          .where("role", "==", "admin")
+          .limit(1)
+          .get();
+
+        if (!ownerDoc.empty) {
+          const owner = ownerDoc.docs[0].data();
+          const formattedOwner = owner.phone.startsWith("+") ? owner.phone : `+972${owner.phone.replace(/^0/, "")}`;
+          const message = `הלקוחה ${data.clientName} ביטלה את התור שנקבע ל-${startTime.toLocaleString("he-IL")}`;
+          await client.messages.create({ body: message, from: fromPhone, to: formattedOwner });
+        }
+
+        // אישור ללקוחה
+        await client.messages.create({ body: "בחירתך התקבלה. התור בוטל בהצלחה.", from: fromPhone, to: from });
+        cancelled = true;
+        break;
+      }
+    }
+
+    if (!cancelled) {
+      await client.messages.create({ body: "לא ניתן לבטל תורים פחות מ-24 שעות מראש.", from: fromPhone, to: from });
+    }
+  }
+
+  res.send("OK");
+});
+
+exports.onIncomingSMS = functions.https.onRequest(smsApp);
