@@ -9,10 +9,10 @@ const AppointmentSentPage = () => {
       <div className="max-w-md mx-auto bg-white shadow-md rounded-lg p-8">
         <h1 className="text-2xl font-bold mb-4">התור נשלח!</h1>
         <p className="mb-4">
-          {client?.name ? `${client.name}, ` : ''}התור שלך התקבל בהצלחה ונשלח לאישור בעלת העסק.
+          {client?.name ? `${client.name}, ` : ''}התור שלך נקבע בהצלחה!
         </p>
         <p className="text-gray-600 mb-6">
-          תקבלי הודעה בסמס ברגע שהתור יאושר או יידחה.
+          תקבלי תזכורת ב-SMS לפני מועד התור.
         </p>
 
         <Link
