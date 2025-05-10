@@ -11,11 +11,12 @@ const authToken = functions.config().twilio.token;
 const fromPhone = functions.config().twilio.phone;
 const client = twilio(accountSid, authToken);
 
-// 1. SMS לבעלת העסק על תור חדש
+// 1. SMS לבעלת העסק + ללקוחה על תור חדש
 exports.notifyOwnerOnNewAppointment = functions.firestore
   .document("appointments/{appointmentId}")
   .onCreate(async (snap, context) => {
     const data = snap.data();
+
     const businessDoc = await admin.firestore()
       .collection("users")
       .where("businessId", "==", data.businessId)
@@ -24,21 +25,25 @@ exports.notifyOwnerOnNewAppointment = functions.firestore
       .get();
 
     if (businessDoc.empty) return null;
+
     const owner = businessDoc.docs[0].data();
-    const formattedPhone = owner.phone.startsWith("+") ? owner.phone : `+972${owner.phone.replace(/^0/, "")}`;
+    const formattedOwner = owner.phone.startsWith("+") ? owner.phone : `+972${owner.phone.replace(/^0/, "")}`;
+    const formattedClient = data.clientPhone.startsWith("+") ? data.clientPhone : `+972${data.clientPhone.replace(/^0/, "")}`;
     const time = data.startTime?.toDate?.().toLocaleString("he-IL") || "מועד לא ידוע";
-    const body = `נכנס תור חדש בתאריך ${time} מ-${data.clientName}`;
+
+    const ownerMsg = `נכנס תור חדש בתאריך ${time} מ-${data.clientName}`;
+    const clientMsg = `התור שלך בנושא ${data.serviceName || 'שירות'} אצל ${owner.name || 'בעלת העסק'} נקבע ל-${time}. לביטול שלחי את הספרה 1 עד 24 שעות מראש.`
 
     try {
-      await client.messages.create({ body, from: fromPhone, to: formattedPhone });
+      await client.messages.create({ body: ownerMsg, from: fromPhone, to: formattedOwner });
+      await client.messages.create({ body: clientMsg, from: fromPhone, to: formattedClient });
     } catch (error) {
-      console.error("שגיאה בשליחת SMS לבעלת העסק:", error.message || error);
+      console.error("שגיאה בשליחת SMS:", error.message || error);
     }
 
     return null;
   });
 
-// 2. SMS ללקוחה לפי שינוי סטטוס
 exports.notifyClientBySMS = functions.firestore
   .document("appointments/{appointmentId}")
   .onUpdate(async (change, context) => {
@@ -71,7 +76,6 @@ exports.notifyClientBySMS = functions.firestore
     return null;
   });
 
-// 3. תזכורות אוטומטיות
 exports.sendAppointmentReminders = functions.pubsub
   .schedule("every 60 minutes")
   .onRun(async () => {
@@ -88,7 +92,6 @@ exports.sendAppointmentReminders = functions.pubsub
     for (const doc of snapshot.docs) {
       const appt = doc.data();
 
-      // תזכורת ללקוחה - יום לפני
       if (Math.abs(appt.startTime.toDate() - oneDayLater.toDate()) < 60 * 60 * 1000) {
         const clientPhone = appt.clientPhone;
         const formattedClient = clientPhone.startsWith("+") ? clientPhone : `+972${clientPhone.replace(/^0/, "")}`;
@@ -100,7 +103,6 @@ exports.sendAppointmentReminders = functions.pubsub
         }
       }
 
-      // תזכורת לבעלת העסק - שעה לפני
       if (Math.abs(appt.startTime.toDate() - oneHourLater.toDate()) < 30 * 60 * 1000) {
         const ownerDoc = await admin.firestore()
           .collection("users")
@@ -125,7 +127,6 @@ exports.sendAppointmentReminders = functions.pubsub
     return null;
   });
 
-// 4. קבלת SMS מהלקוחה לצורך ביטול
 const smsApp = express();
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 
@@ -152,7 +153,6 @@ smsApp.post("/sms", async (req, res) => {
           status: "cancelled_by_client"
         });
 
-        // הודעה לבעלת העסק
         const ownerDoc = await admin.firestore()
           .collection("users")
           .where("businessId", "==", data.businessId)
@@ -167,7 +167,6 @@ smsApp.post("/sms", async (req, res) => {
           await client.messages.create({ body: message, from: fromPhone, to: formattedOwner });
         }
 
-        // אישור ללקוחה
         await client.messages.create({ body: "בחירתך התקבלה. התור בוטל בהצלחה.", from: fromPhone, to: from });
         cancelled = true;
         break;
