@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
-import { format, addDays, startOfWeek } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { db } from "../../lib/firebase";
 import {
@@ -34,6 +34,7 @@ const BookPage: React.FC = () => {
   const [notes, setNotes] = useState<string>("");
   const [step, setStep] = useState<number>(1);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [availability, setAvailability] = useState<any[]>([]);
 
   const defaultSlots = [
     "09:00", "10:00", "11:00", "12:00", "13:00",
@@ -55,6 +56,18 @@ const BookPage: React.FC = () => {
       const q = query(collection(db, "appointments"), where("businessId", "==", businessId));
       const snap = await getDocs(q);
       setAppointments(snap.docs.map(doc => doc.data()));
+    })();
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    (async () => {
+      const q = query(collection(db, "availability"), where("businessId", "==", businessId));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const data = snap.docs[0].data();
+        setAvailability(data.hours || []);
+      }
     })();
   }, [businessId]);
 
@@ -144,6 +157,8 @@ const BookPage: React.FC = () => {
   const startOfCurrentWeek = startOfWeek(new Date(), { locale: he, weekStartsOn: 0 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(startOfCurrentWeek, i));
 
+  const getAvailabilityForDay = (dayIndex: number) => availability.find((a: any) => a.dayOfWeek === dayIndex);
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
@@ -168,11 +183,15 @@ const BookPage: React.FC = () => {
                 <thead>
                   <tr>
                     <th className="p-2 border">שעה</th>
-                    {weekDays.map(day => (
-                      <th key={day.toDateString()} className="p-2 border">
-                        {format(day, 'EEEE', { locale: he })} <br /> {format(day, 'dd.MM')}
-                      </th>
-                    ))}
+                    {weekDays.map((day, index) => {
+                      const av = getAvailabilityForDay(day.getDay());
+                      return (
+                        <th key={day.toDateString()} className="p-2 border">
+                          {format(day, 'EEEE', { locale: he })}<br />{format(day, 'dd.MM')}
+                          {!av?.available && <div className="text-red-500 text-xs">לא פעיל</div>}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -180,20 +199,23 @@ const BookPage: React.FC = () => {
                     <tr key={time}>
                       <td className="p-2 border font-medium">{time}</td>
                       {weekDays.map(day => {
+                        const dayAvailability = getAvailabilityForDay(day.getDay());
                         const isTaken = isSlotTaken(day, time);
+                        const inRange = dayAvailability?.startTime <= time && time <= dayAvailability?.endTime;
+                        const isActive = dayAvailability?.available && inRange;
                         return (
                           <td
                             key={day.toISOString() + time}
-                            className={`p-2 border ${isTaken ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'hover:bg-green-100 cursor-pointer'}`}
+                            className={`p-2 border ${!isActive || isTaken ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'hover:bg-green-100 cursor-pointer'}`}
                             onClick={() => {
-                              if (!isTaken) {
+                              if (isActive && !isTaken) {
                                 setSelectedDate(day);
                                 setSelectedTime(time);
                                 setStep(3);
                               }
                             }}
                           >
-                            {isTaken ? 'תפוס' : 'פנוי'}
+                            {!isActive ? '-' : isTaken ? 'תפוס' : 'פנוי'}
                           </td>
                         );
                       })}
