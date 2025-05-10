@@ -98,7 +98,6 @@ exports.sendAppointmentReminders = functions.pubsub
     for (const doc of snapshot.docs) {
       const appt = doc.data();
 
-      // תזכורת ללקוחה - יום לפני
       if (Math.abs(appt.startTime.toDate() - oneDayLater.toDate()) < 60 * 60 * 1000) {
         const clientPhone = appt.clientPhone;
         const formattedClient = clientPhone?.startsWith("+") ? clientPhone : `+972${clientPhone?.replace(/^0/, "")}`;
@@ -112,7 +111,6 @@ exports.sendAppointmentReminders = functions.pubsub
         }
       }
 
-      // תזכורת לבעלת העסק - שעה לפני
       if (Math.abs(appt.startTime.toDate() - oneHourLater.toDate()) < 30 * 60 * 1000) {
         const ownerDoc = await admin.firestore()
           .collection("users")
@@ -143,7 +141,7 @@ exports.sendAppointmentReminders = functions.pubsub
 const smsApp = express();
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 
-smsApp.post("/sms", async (req, res) => {
+smsApp.post("/", async (req, res) => {
   const incomingMsg = req.body.Body?.trim();
   const from = req.body.From;
 
