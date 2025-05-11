@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { CheckCircle, Calendar, CreditCard, ArrowLeft } from 'lucide-react';
@@ -8,30 +8,26 @@ import { CheckCircle, Calendar, CreditCard, ArrowLeft } from 'lucide-react';
 const ThankYouPage: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const { appointment, client, service, paymentMethod } = location.state || {
-    appointment: null,
-    client: null,
-    service: { name: 'טיפול פנים', price: 250 },
-    paymentMethod: 'credit'
-  };
-
-  if (!appointment || !client) {
+  if (!location.state) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-          <h1 className="text-2xl font-bold mb-4">{t('error_general')}</h1>
-          <p className="mb-4">לא נמצאו פרטי הזמנה. אנא חזור לדף הזמנת התור.</p>
-          <Link
-            to="/book"
-            className="block w-full px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors text-center"
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">שגיאה</h1>
+          <p className="mb-4 text-gray-700">אין נתוני תור להצגה. אנא התחילי הזמנה חדשה.</p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
           >
-            חזרה לדף הזמנת התור
-          </Link>
+            חזרה לדף הבית
+          </button>
         </div>
       </div>
     );
   }
+
+  const { appointment, client, service, paymentMethod } = location.state;
 
   return (
     <div className="container mx-auto px-4 py-8">

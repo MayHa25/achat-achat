@@ -12,11 +12,24 @@ const ConfirmationPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { appointment, client, service } = location.state || {
-    appointment: null,
-    client: null,
-    service: null
-  };
+  if (!location.state) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">שגיאה</h1>
+          <p className="mb-4 text-gray-700">אין נתונים זמינים לעיבוד. אנא הזיני תור חדש דרך דף ההזמנות.</p>
+          <button
+            onClick={() => navigate('/')}
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+          >
+            חזרה לדף הבית
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const { appointment, client, service } = location.state;
 
   const [paymentMethod, setPaymentMethod] = useState<string>('credit');
   const [cardNumber, setCardNumber] = useState<string>('');
@@ -56,23 +69,6 @@ const ConfirmationPage: React.FC = () => {
       setIsProcessing(false);
     }
   };
-
-  if (!appointment || !client || !service) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-          <h1 className="text-2xl font-bold mb-4">{t('error_general')}</h1>
-          <p className="mb-4">לא נמצאו פרטי הזמנה. אנא חזור לדף הזמנת התור.</p>
-          <button
-            onClick={() => navigate('/book')}
-            className="w-full px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
-          >
-            חזרה לדף הזמנת התור
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-8">
