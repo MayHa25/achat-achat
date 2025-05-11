@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import './i18n';
+import './i18n'; // i18n מופעלת, אך לא דרוש שימוש ישיר ב־useTranslation אם לא משתמשים ב־t
 
 // Components
 import PublicLayout from './layouts/PublicLayout';
@@ -28,8 +27,7 @@ import SettingsPage from './pages/admin/SettingsPage';
 import { loadMockData } from './utils/mockData';
 
 function App() {
-  const { t } = useTranslation();
-
+  // אין שימוש ב־t כרגע, ולכן לא נשתמש ב־useTranslation כדי למנוע אזהרה
   React.useEffect(() => {
     loadMockData();
   }, []);
