@@ -29,8 +29,7 @@ import { loadMockData } from './utils/mockData';
 
 function App() {
   const { t } = useTranslation();
-  
-  // Load mock data for demo
+
   React.useEffect(() => {
     loadMockData();
   }, []);
@@ -41,12 +40,12 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<Home />} />
-          <Route path="book" element={<BookPage />} />
+          <Route path=":businessId/book" element={<BookPage />} />
           <Route path="confirmation" element={<ConfirmationPage />} />
           <Route path="thank-you" element={<ThankYouPage />} />
           <Route path="login" element={<LoginPage />} />
         </Route>
-        
+
         {/* Admin Routes */}
         <Route 
           path="/admin" 
