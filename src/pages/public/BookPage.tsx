@@ -11,7 +11,7 @@ import {
   doc,
   getDoc
 } from 'firebase/firestore';
-import { format, addDays, startOfWeek, setHours, setMinutes } from 'date-fns';
+import { addDays, startOfWeek, setHours, setMinutes } from 'date-fns';
 
 const BookPage: React.FC = () => {
   const params = useParams();
@@ -81,8 +81,6 @@ const BookPage: React.FC = () => {
     });
   };
 
-  const weekDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-
   const handleBookAppointment = async () => {
     if (!selectedSlot || !selectedServiceId || !businessId || !clientName || !clientPhone) return;
 
@@ -97,8 +95,8 @@ const BookPage: React.FC = () => {
       clientName,
       clientPhone,
       startTime: Timestamp.fromDate(startTime),
-      duration: selectedService.duration,
-      price: selectedService.price,
+      duration: selectedService?.duration || 30,
+      price: selectedService?.price || 0,
       status: 'pending',
       created: Timestamp.now()
     };
@@ -132,7 +130,11 @@ const BookPage: React.FC = () => {
         <p className="text-center text-gray-500 mt-4">אין שירותים זמינים להצגה. אנא בדקי בהגדרות העסק.</p>
       )}
 
-      {/* המשך הקוד שלך כאן */}
+      {availabilities.length === 0 && (
+        <p className="text-center text-gray-500 mt-4">בעלת העסק לא הגדירה שעות פעילות.</p>
+      )}
+
+      {/* הקוד הרלוונטי לטבלת שירותים וזמנים יגיע כאן בהמשך */}
     </div>
   );
 };
