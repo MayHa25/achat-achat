@@ -46,30 +46,34 @@ async function addToGoogleCalendar(appointment) {
   });
 }
 
+// ✅ פונקציה לשליחת SMS עם טקסט מותאם אישית
 exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
-  const { name, phone, date, time } = data;
+  const { phone, message } = data;
+
   const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
-  const messageBody = `שלום ${name}, תורך נקבע בהצלחה ליום ${date} בשעה ${time}.`;
 
   try {
-    const message = await client.messages.create({
-      body: messageBody,
+    const sms = await client.messages.create({
+      body: message,
       from: fromPhone,
       to: formattedPhone,
     });
-    return { success: true, sid: message.sid };
+
+    return { success: true, sid: sms.sid };
   } catch (error) {
     console.error("שגיאה בשליחת SMS מיידי:", error);
     throw new functions.https.HttpsError("internal", "שליחת SMS נכשלה");
   }
 });
 
+// ✅ תמיכה בהודעת ביטול על ידי SMS נכנס עם הספרה "1"
 const smsApp = express();
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 
 smsApp.post("/", async (req, res) => {
   const incomingMsg = req.body.Body?.trim();
   const from = req.body.From;
+
   if (incomingMsg === "1") {
     const phone = from.startsWith("+972") ? "0" + from.slice(4) : from;
     const now = new Date();
@@ -84,6 +88,7 @@ smsApp.post("/", async (req, res) => {
     for (const doc of snapshot.docs) {
       const data = doc.data();
       const startTime = data.startTime.toDate();
+
       if ((startTime - now) >= 24 * 60 * 60 * 1000) {
         await doc.ref.update({ status: "cancelled_by_client" });
 
@@ -95,22 +100,40 @@ smsApp.post("/", async (req, res) => {
 
         if (!ownerDoc.empty) {
           const owner = ownerDoc.docs[0].data();
-          const formattedOwner = owner.phone?.startsWith("+") ? owner.phone : `+972${owner.phone?.replace(/^0/, "")}`;
+          const formattedOwner = owner.phone?.startsWith("+")
+            ? owner.phone
+            : `+972${owner.phone?.replace(/^0/, "")}`;
+
+          const day = startTime.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit' });
+          const time = startTime.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
+
+          const ownerMessage = `שלום, הלקוחה ${data.clientName} ביטלה את התור שלה ליום ${day} בשעה ${time}.
+אין צורך באישור נוסף – התור הוסר מהמערכת.`;
+
           await client.messages.create({
-            body: `הלקוחה ${data.clientName} ביטלה את התור שנקבע ל-${startTime.toLocaleString("he-IL")}`,
+            body: ownerMessage,
             from: fromPhone,
             to: formattedOwner
           });
         }
 
-        await client.messages.create({ body: "בחירתך התקבלה. התור בוטל בהצלחה.", from: fromPhone, to: from });
+        await client.messages.create({
+          body: "בחירתך התקבלה. התור בוטל בהצלחה.",
+          from: fromPhone,
+          to: from
+        });
+
         cancelled = true;
         break;
       }
     }
 
     if (!cancelled) {
-      await client.messages.create({ body: "לא ניתן לבטל תורים פחות מ-24 שעות מראש.", from: fromPhone, to: from });
+      await client.messages.create({
+        body: "לא ניתן לבטל תורים פחות מ-24 שעות מראש.",
+        from: fromPhone,
+        to: from
+      });
     }
   }
 

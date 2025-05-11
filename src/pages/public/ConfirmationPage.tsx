@@ -30,11 +30,14 @@ const ConfirmationPage: React.FC = () => {
 
     try {
       const sendSMS = httpsCallable(functions, 'sendSmsOnBooking');
+      const businessName = 'מאי חכימי'; // ניתן לשלב דינאמית בהמשך
+
+      const message = `התור שלך בנושא ${service.name} אצל ${businessName} נקבע ל־${format(appointment.startTime, 'dd.MM.yyyy')}, ${format(appointment.startTime, 'HH:mm')}.
+לביטול שלחי את הספרה 1 עד 24 שעות מראש.`;
+
       await sendSMS({
-        name: client.name,
         phone: client.phone,
-        date: format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he }),
-        time: format(appointment.startTime, 'HH:mm')
+        message: message
       });
 
       setTimeout(() => {
