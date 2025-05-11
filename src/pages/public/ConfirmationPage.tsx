@@ -78,7 +78,7 @@ const ConfirmationPage: React.FC = () => {
             <div className="inline-block p-3 bg-success-100 rounded-full mb-2">
               <Check className="w-8 h-8 text-success-600" />
             </div>
-            <h1 className="text-2xl font-bold">שלום {client.name}, תורך נקבע בהצלחה</h1>
+            <h1 className="text-2xl font-bold">התור שלך נקבע בהצלחה</h1>
             <p className="text-gray-600">
               ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה {format(appointment.startTime, 'HH:mm')}
             </p>
