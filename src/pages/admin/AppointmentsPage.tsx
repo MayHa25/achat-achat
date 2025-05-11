@@ -1,14 +1,65 @@
-import React from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect, useState } from 'react';
+import { format } from 'date-fns';
+import { he } from 'date-fns/locale';
+import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import useStore from '../../store/useStore';
 
 const AppointmentsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { user } = useStore();
+  const [appointments, setAppointments] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user?.businessId) return;
+
+    const fetchAppointments = async () => {
+      try {
+        const q = query(collection(db, 'appointments'), where('businessId', '==', user.businessId));
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setAppointments(data);
+      } catch (error) {
+        console.error('שגיאה בטעינת תורים:', error);
+      }
+    };
+
+    fetchAppointments();
+  }, [user?.businessId]);
+
+  const cancelAppointment = async (appointmentId: string) => {
+    try {
+      await deleteDoc(doc(db, 'appointments', appointmentId));
+      setAppointments(prev => prev.filter(app => app.id !== appointmentId));
+    } catch (error) {
+      console.error('שגיאה בביטול תור:', error);
+    }
+  };
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t('appointments.title', 'Appointments')}</h1>
+      <h1 className="text-2xl font-bold mb-6">רשימת תורים</h1>
       <div className="bg-white rounded-lg shadow p-6">
-        <p className="text-gray-600">{t('appointments.noAppointments', 'No appointments found.')}</p>
+        {appointments.length === 0 ? (
+          <p className="text-gray-600">לא נמצאו תורים.</p>
+        ) : (
+          <div className="space-y-4">
+            {appointments.map(app => (
+              <div key={app.id} className="border-b border-gray-200 pb-4">
+                <p><strong>שם לקוחה:</strong> {app.clientName}</p>
+                <p><strong>טיפול:</strong> {app.serviceName}</p>
+                <p><strong>מחיר:</strong> ₪{app.price || 'לא צוין'}</p>
+                <p><strong>תאריך:</strong> {format(new Date(app.date), 'd בMMMM yyyy', { locale: he })}</p>
+                <p><strong>שעה:</strong> {format(new Date(app.date), 'HH:mm')}</p>
+                <button
+                  onClick={() => cancelAppointment(app.id)}
+                  className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                  בטלי תור
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

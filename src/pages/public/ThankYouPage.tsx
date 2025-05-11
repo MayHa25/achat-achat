@@ -8,15 +8,14 @@ import { CheckCircle, Calendar, CreditCard, ArrowLeft } from 'lucide-react';
 const ThankYouPage: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
-  
-  // Get the data passed from ConfirmationPage
+
   const { appointment, client, service, paymentMethod } = location.state || {
     appointment: null,
     client: null,
     service: { name: 'טיפול פנים', price: 250 },
     paymentMethod: 'credit'
   };
-  
+
   if (!appointment || !client) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -33,7 +32,7 @@ const ThankYouPage: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
@@ -42,66 +41,40 @@ const ThankYouPage: React.FC = () => {
             <div className="inline-flex p-3 bg-success-100 rounded-full mb-4">
               <CheckCircle className="w-12 h-12 text-success-600" />
             </div>
-            <h1 className="text-3xl font-bold mb-2">{t('thank_you_message')}</h1>
+            <h1 className="text-3xl font-bold mb-2">תודה {client.name}!</h1>
             <p className="text-lg text-gray-600">
-              התור שלך נקבע בהצלחה והתשלום התקבל. שלחנו לך אישור בהודעת טקסט למספר {client.phone}.
+              תורך נקבע ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה {format(appointment.startTime, 'HH:mm')}.
+              <br />
+              שלחנו לך אישור בהודעת טקסט למספר {client.phone}.
             </p>
           </div>
-          
+
           <div className="bg-gray-50 p-6 rounded-lg mb-8">
             <div className="flex items-center border-b border-gray-200 pb-4 mb-4">
               <Calendar className="w-5 h-5 text-primary-600 ml-3" />
               <h2 className="text-xl font-semibold">{t('appointment_details')}</h2>
             </div>
-            
             <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t('appointment_service')}:</span>
-                <span className="font-medium">{service.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t('appointment_date')}:</span>
-                <span className="font-medium">
-                  {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t('appointment_time')}:</span>
-                <span className="font-medium">{format(appointment.startTime, 'HH:mm')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t('client_name')}:</span>
-                <span className="font-medium">{client.name}</span>
-              </div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('appointment_service')}:</span><span className="font-medium">{service.name}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('appointment_date')}:</span><span className="font-medium">{format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('appointment_time')}:</span><span className="font-medium">{format(appointment.startTime, 'HH:mm')}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('client_name')}:</span><span className="font-medium">{client.name}</span></div>
             </div>
           </div>
-          
+
           <div className="bg-gray-50 p-6 rounded-lg mb-8">
             <div className="flex items-center border-b border-gray-200 pb-4 mb-4">
               <CreditCard className="w-5 h-5 text-primary-600 ml-3" />
               <h2 className="text-xl font-semibold">{t('payment_details')}</h2>
             </div>
-            
             <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t('payment_method')}:</span>
-                <span className="font-medium">{paymentMethod === 'credit' ? t('credit_card') : t('bit')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t('payment_amount')}:</span>
-                <span className="font-medium">₪{service.price}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">{t('payment_status')}:</span>
-                <span className="font-medium text-success-600">{t('payment_status_paid')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">מספר חשבונית:</span>
-                <span className="font-medium">INV-{Math.floor(Math.random() * 10000)}</span>
-              </div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('payment_method')}:</span><span className="font-medium">{paymentMethod === 'credit' ? t('credit_card') : t('bit')}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('payment_amount')}:</span><span className="font-medium">₪{service.price}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('payment_status')}:</span><span className="font-medium text-success-600">{t('payment_status_paid')}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">מספר חשבונית:</span><span className="font-medium">INV-{Math.floor(Math.random() * 10000)}</span></div>
             </div>
           </div>
-          
+
           <div className="text-center">
             <Link
               to="/"
@@ -112,7 +85,7 @@ const ThankYouPage: React.FC = () => {
             </Link>
           </div>
         </div>
-        
+
         <div className="bg-primary-50 border border-primary-100 rounded-lg p-6">
           <h2 className="text-lg font-semibold text-primary-800 mb-3">הערות חשובות:</h2>
           <ul className="list-disc list-inside space-y-2 text-primary-700">

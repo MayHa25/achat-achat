@@ -1,3 +1,5 @@
+// ✅ נוספה תמיכה בפונקציית קריאה ישירה מתוך האפליקציה לשליחת SMS מיידית (onCall)
+
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const twilio = require("twilio");
@@ -43,6 +45,24 @@ async function addToGoogleCalendar(appointment) {
   });
 }
 
+exports.sendSmsOnBooking = functions.https.onCall(async (data, context) => {
+  const { name, phone, date, time } = data;
+  const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
+
+  const messageBody = `שלום ${name}, תורך נקבע בהצלחה ליום ${date} בשעה ${time}.`;  
+  try {
+    const message = await client.messages.create({
+      body: messageBody,
+      from: fromPhone,
+      to: formattedPhone,
+    });
+    return { success: true, sid: message.sid };
+  } catch (error) {
+    console.error("שגיאה בשליחת SMS מיידי:", error);
+    throw new functions.https.HttpsError("internal", "שליחת SMS נכשלה");
+  }
+});
+
 exports.notifyOwnerOnNewAppointment = functions.firestore
   .document("appointments/{appointmentId}")
   .onCreate(async (snap, context) => {
@@ -72,9 +92,7 @@ exports.notifyOwnerOnNewAppointment = functions.firestore
       if (formattedClient) {
         await client.messages.create({ body: clientMsg, from: fromPhone, to: formattedClient });
       }
-
       await addToGoogleCalendar(data);
-
     } catch (error) {
       console.error("שגיאה בשליחת SMS או ביומן:", error.message || error);
     }
