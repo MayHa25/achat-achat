@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import {
   collection,
@@ -15,6 +15,7 @@ import { addDays, startOfWeek, setHours, setMinutes, format } from 'date-fns';
 
 const BookPage: React.FC = () => {
   const { businessId } = useParams<{ businessId: string }>();
+  const navigate = useNavigate();
 
   const [services, setServices] = useState<any[]>([]);
   const [availabilities, setAvailabilities] = useState<any[]>([]);
@@ -23,7 +24,6 @@ const BookPage: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<{ day: number; time: string } | null>(null);
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -100,11 +100,15 @@ const BookPage: React.FC = () => {
       created: Timestamp.now()
     };
 
-    await addDoc(collection(db, 'appointments'), newAppointment);
-    setSuccessMessage('התור נשלח לאישור בעלת העסק!');
-    setSelectedSlot(null);
-    setClientName('');
-    setClientPhone('');
+    const docRef = await addDoc(collection(db, 'appointments'), newAppointment);
+
+    navigate('/confirmation', {
+      state: {
+        appointment: { ...newAppointment, id: docRef.id },
+        client: { name: clientName, phone: clientPhone },
+        service: selectedService
+      }
+    });
   };
 
   if (!businessId) {
@@ -121,12 +125,6 @@ const BookPage: React.FC = () => {
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6">קביעת תור</h1>
 
-      {successMessage && (
-        <div className="bg-green-100 text-green-800 px-4 py-2 rounded mb-6 text-center">
-          {successMessage}
-        </div>
-      )}
-
       {services.length === 0 && (
         <p className="text-center text-gray-500 mt-4">אין שירותים זמינים להצגה. אנא בדקי בהגדרות העסק.</p>
       )}
@@ -135,7 +133,6 @@ const BookPage: React.FC = () => {
         <p className="text-center text-gray-500 mt-4">בעלת העסק לא הגדירה שעות פעילות.</p>
       )}
 
-      {/* הצגת שירותים */}
       <div className="mb-6">
         <h2 className="font-medium mb-2">בחרי שירות</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -155,7 +152,6 @@ const BookPage: React.FC = () => {
         </div>
       </div>
 
-      {/* טבלת שעות */}
       {selectedServiceId && (
         <>
           <h2 className="font-medium mb-3">בחרי מועד</h2>
@@ -213,7 +209,6 @@ const BookPage: React.FC = () => {
             </table>
           </div>
 
-          {/* פרטי לקוחה */}
           <div className="mb-6">
             <h2 className="font-medium mb-2">פרטי יצירת קשר</h2>
             <input

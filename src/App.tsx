@@ -27,7 +27,6 @@ import SettingsPage from './pages/admin/SettingsPage';
 import { loadMockData } from './utils/mockData';
 
 function App() {
-  // אין שימוש ב־t כרגע, ולכן לא נשתמש ב־useTranslation כדי למנוע אזהרה
   React.useEffect(() => {
     loadMockData();
   }, []);
