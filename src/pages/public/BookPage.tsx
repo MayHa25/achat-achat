@@ -7,7 +7,9 @@ import {
   where,
   getDocs,
   addDoc,
-  Timestamp
+  Timestamp,
+  doc,
+  getDoc
 } from 'firebase/firestore';
 import { format, addDays, startOfWeek, setHours, setMinutes } from 'date-fns';
 
@@ -31,18 +33,19 @@ const BookPage: React.FC = () => {
     const fetchData = async () => {
       try {
         const servicesQuery = query(collection(db, 'services'), where('businessId', '==', businessId));
-        const availabilitiesQuery = query(collection(db, 'availabilities'), where('businessId', '==', businessId));
         const appointmentsQuery = query(collection(db, 'appointments'), where('businessId', '==', businessId));
 
-        const [servicesSnap, availabilitiesSnap, appointmentsSnap] = await Promise.all([
+        const [servicesSnap, appointmentsSnap, availabilityDocSnap] = await Promise.all([
           getDocs(servicesQuery),
-          getDocs(availabilitiesQuery),
-          getDocs(appointmentsQuery)
+          getDocs(appointmentsQuery),
+          getDoc(doc(db, 'availability', businessId))
         ]);
 
         setServices(servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setAvailabilities(availabilitiesSnap.docs.map(doc => doc.data()));
         setAppointments(appointmentsSnap.docs.map(doc => doc.data()));
+
+        const availabilityData = availabilityDocSnap.data();
+        setAvailabilities(availabilityData?.businessHours || []);
       } catch (err) {
         console.error("שגיאה בטעינת נתונים:", err);
       } finally {
@@ -125,8 +128,11 @@ const BookPage: React.FC = () => {
         </div>
       )}
 
-      {/* כל הקוד ממשיך זהה כמו ששלחת */}
-      {/* ... */}
+      {services.length === 0 && (
+        <p className="text-center text-gray-500 mt-4">אין שירותים זמינים להצגה. אנא בדקי בהגדרות העסק.</p>
+      )}
+
+      {/* המשך הקוד שלך כאן */}
     </div>
   );
 };
