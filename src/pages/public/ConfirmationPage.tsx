@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { Check, CreditCard } from 'lucide-react';
+import { CheckCircle, Calendar, CreditCard, ArrowLeft } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 
@@ -14,7 +14,13 @@ const ConfirmationPage: React.FC = () => {
 
   const { appointment, client, service } = location.state || {};
 
-  // הגנה מלאה מקריסות בעת רענון או גישה ישירה
+  const [paymentMethod, setPaymentMethod] = useState<string>('credit');
+  const [cardNumber, setCardNumber] = useState<string>('');
+  const [expiryDate, setExpiryDate] = useState<string>('');
+  const [cvv, setCvv] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [paymentCompleted, setPaymentCompleted] = useState<boolean>(false);
+
   if (!appointment || !client || !service || !appointment.startTime) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -32,121 +38,145 @@ const ConfirmationPage: React.FC = () => {
     );
   }
 
-  const [paymentMethod, setPaymentMethod] = useState<string>('credit');
-  const [cardNumber, setCardNumber] = useState<string>('');
-  const [expiryDate, setExpiryDate] = useState<string>('');
-  const [cvv, setCvv] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
 
     try {
       const sendSMS = httpsCallable(functions, 'sendSmsOnBooking');
-      const businessName = 'מאי חכימי'; // ניתן לשלב דינאמית בהמשך
+      const businessName = 'מאי חכימי';
 
       const message = `התור שלך בנושא ${service.name} אצל ${businessName} נקבע ל־${format(appointment.startTime, 'dd.MM.yyyy')}, ${format(appointment.startTime, 'HH:mm')}.
 לביטול שלחי את הספרה 1 עד 24 שעות מראש.`;
 
-      await sendSMS({
-        phone: client.phone,
-        message: message
-      });
-
-      setTimeout(() => {
-        setIsProcessing(false);
-        navigate('/thank-you', {
-          state: {
-            appointment,
-            client,
-            service,
-            paymentMethod
-          }
-        });
-      }, 1000);
+      await sendSMS({ phone: client.phone, message });
+      setPaymentCompleted(true);
     } catch (error) {
       console.error('שגיאה בשליחת SMS:', error);
+    } finally {
       setIsProcessing(false);
     }
   };
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="text-center mb-8">
-            <div className="inline-block p-3 bg-success-100 rounded-full mb-2">
-              <Check className="w-8 h-8 text-success-600" />
+  if (!paymentCompleted) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div className="text-center mb-8">
+              <div className="inline-block p-3 bg-success-100 rounded-full mb-2">
+                <CheckCircle className="w-8 h-8 text-success-600" />
+              </div>
+              <h1 className="text-2xl font-bold">התור שלך נקבע בהצלחה</h1>
+              <p className="text-gray-600">
+                ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה {format(appointment.startTime, 'HH:mm')}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">אנא בחרי שיטת תשלום והמשיכי</p>
             </div>
-            <h1 className="text-2xl font-bold">התור שלך נקבע בהצלחה</h1>
-            <p className="text-gray-600">
-              ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה {format(appointment.startTime, 'HH:mm')}
-            </p>
-            <p className="text-sm text-gray-500 mt-1">מיד תקבל הודעת SMS עם הפרטים</p>
-          </div>
 
-          <div className="bg-gray-50 p-4 rounded-md mb-8">
-            <h2 className="font-semibold text-lg mb-4">{t('confirmation_details')}</h2>
-            <div className="space-y-2">
-              <p className="flex justify-between"><span className="text-gray-600">{t('appointment_service')}:</span><span className="font-medium">{service.name}</span></p>
-              <p className="flex justify-between"><span className="text-gray-600">{t('appointment_date')}:</span><span className="font-medium">{format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })}</span></p>
-              <p className="flex justify-between"><span className="text-gray-600">{t('appointment_time')}:</span><span className="font-medium">{format(appointment.startTime, 'HH:mm')}</span></p>
-              <p className="flex justify-between"><span className="text-gray-600">{t('client_name')}:</span><span className="font-medium">{client.name}</span></p>
-              <p className="flex justify-between"><span className="text-gray-600">{t('phone')}:</span><span className="font-medium">{client.phone}</span></p>
-              <p className="flex justify-between"><span className="text-gray-600">{t('appointment_price')}:</span><span className="font-medium">₪{service.price}</span></p>
-            </div>
-          </div>
-
-          <div>
-            <h2 className="font-semibold text-lg mb-4">{t('payment_title')}</h2>
             <form onSubmit={handlePayment}>
               <div className="mb-4">
-                <p className="text-gray-600 mb-2">{t('payment_method')}</p>
+                <p className="text-gray-600 mb-2">שיטת תשלום</p>
                 <div className="flex gap-4">
                   <label className="flex items-center">
-                    <input type="radio" name="paymentMethod" value="credit" checked={paymentMethod === 'credit'} onChange={() => setPaymentMethod('credit')} className="mr-2" />
-                    <span>{t('credit_card')}</span>
+                    <input type="radio" value="credit" checked={paymentMethod === 'credit'} onChange={() => setPaymentMethod('credit')} className="mr-2" />
+                    <span>כרטיס אשראי</span>
                   </label>
                   <label className="flex items-center">
-                    <input type="radio" name="paymentMethod" value="bit" checked={paymentMethod === 'bit'} onChange={() => setPaymentMethod('bit')} className="mr-2" />
-                    <span>{t('bit')}</span>
+                    <input type="radio" value="bit" checked={paymentMethod === 'bit'} onChange={() => setPaymentMethod('bit')} className="mr-2" />
+                    <span>ביט</span>
                   </label>
                 </div>
               </div>
 
               {paymentMethod === 'credit' && (
                 <div className="space-y-4 mb-6">
-                  <div>
-                    <label htmlFor="cardNumber" className="block text-gray-700 mb-1">{t('card_number')}</label>
-                    <input id="cardNumber" type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} placeholder="XXXX XXXX XXXX XXXX" className="w-full border border-gray-300 rounded-md px-4 py-2" required />
-                  </div>
+                  <input type="text" placeholder="XXXX XXXX XXXX XXXX" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} className="w-full border rounded px-4 py-2" required />
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="expiryDate" className="block text-gray-700 mb-1">{t('expiration_date')}</label>
-                      <input id="expiryDate" type="text" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} placeholder="MM/YY" className="w-full border border-gray-300 rounded-md px-4 py-2" required />
-                    </div>
-                    <div>
-                      <label htmlFor="cvv" className="block text-gray-700 mb-1">{t('cvv')}</label>
-                      <input id="cvv" type="text" value={cvv} onChange={(e) => setCvv(e.target.value)} placeholder="123" className="w-full border border-gray-300 rounded-md px-4 py-2" required />
-                    </div>
+                    <input type="text" placeholder="MM/YY" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full border rounded px-4 py-2" required />
+                    <input type="text" placeholder="CVV" value={cvv} onChange={(e) => setCvv(e.target.value)} className="w-full border rounded px-4 py-2" required />
                   </div>
                 </div>
               )}
 
               {paymentMethod === 'bit' && (
-                <div className="p-6 border border-gray-200 rounded-md mb-6 text-center">
-                  <p className="mb-4">שלח תשלום באמצעות ביט למספר:</p>
-                  <p className="text-xl font-bold mb-2">050-1234567</p>
+                <div className="p-4 border border-gray-200 rounded mb-6 text-center">
+                  <p className="mb-2">שלחי תשלום באמצעות ביט למספר:</p>
+                  <p className="text-xl font-bold">050-1234567</p>
                   <p className="text-gray-500">נא לציין את שמך ותאריך התור בהערות</p>
                 </div>
               )}
 
-              <button type="submit" disabled={isProcessing} className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}>
-                {isProcessing ? t('loading') : (<><CreditCard className="w-5 h-5" />{t('proceed_to_payment')}</>)}
+              <button type="submit" disabled={isProcessing} className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700">
+                {isProcessing ? 'מעבד תשלום...' : 'אשרי תשלום וסיום'}
               </button>
             </form>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Thank you screen
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-lg shadow-md p-8 mb-8">
+          <div className="text-center mb-8">
+            <div className="inline-flex p-3 bg-success-100 rounded-full mb-4">
+              <CheckCircle className="w-12 h-12 text-success-600" />
+            </div>
+            <h1 className="text-3xl font-bold mb-2">תודה {client.name}!</h1>
+            <p className="text-lg text-gray-600">
+              תורך נקבע ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה {format(appointment.startTime, 'HH:mm')}.
+              <br />
+              שלחנו לך אישור בהודעת טקסט למספר {client.phone}.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-6 rounded-lg mb-8">
+            <div className="flex items-center border-b border-gray-200 pb-4 mb-4">
+              <Calendar className="w-5 h-5 text-primary-600 ml-3" />
+              <h2 className="text-xl font-semibold">{t('appointment_details')}</h2>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between"><span className="text-gray-600">{t('appointment_service')}:</span><span className="font-medium">{service.name}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('appointment_date')}:</span><span className="font-medium">{format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('appointment_time')}:</span><span className="font-medium">{format(appointment.startTime, 'HH:mm')}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('client_name')}:</span><span className="font-medium">{client.name}</span></div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-6 rounded-lg mb-8">
+            <div className="flex items-center border-b border-gray-200 pb-4 mb-4">
+              <CreditCard className="w-5 h-5 text-primary-600 ml-3" />
+              <h2 className="text-xl font-semibold">{t('payment_details')}</h2>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between"><span className="text-gray-600">{t('payment_method')}:</span><span className="font-medium">{paymentMethod === 'credit' ? t('credit_card') : t('bit')}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('payment_amount')}:</span><span className="font-medium">₪{service.price}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">{t('payment_status')}:</span><span className="font-medium text-success-600">{t('payment_status_paid')}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">מספר חשבונית:</span><span className="font-medium">INV-{Math.floor(Math.random() * 10000)}</span></div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={() => navigate('/')}
+              className="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+            >
+              <ArrowLeft className="w-5 h-5 ml-2" /> חזרה לדף הבית
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-primary-50 border border-primary-100 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-primary-800 mb-3">הערות חשובות:</h2>
+          <ul className="list-disc list-inside space-y-2 text-primary-700">
+            <li>נא להגיע 10 דקות לפני התור</li>
+            <li>אם יש צורך לבטל או לשנות את התור, יש להודיע לפחות 24 שעות מראש</li>
+            <li>נקבל תזכורת שעה לפני התור</li>
+          </ul>
         </div>
       </div>
     </div>

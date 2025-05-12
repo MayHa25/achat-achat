@@ -11,7 +11,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/public/Home';
 import BookPage from './pages/public/BookPage';
 import ConfirmationPage from './pages/public/ConfirmationPage';
-import ThankYouPage from './pages/public/ThankYouPage';
 import LoginPage from './pages/public/LoginPage';
 
 // Pages - Admin
@@ -39,7 +38,6 @@ function App() {
           <Route index element={<Home />} />
           <Route path=":businessId/book" element={<BookPage />} />
           <Route path="confirmation" element={<ConfirmationPage />} />
-          <Route path="thank-you" element={<ThankYouPage />} />
           <Route path="login" element={<LoginPage />} />
         </Route>
 
