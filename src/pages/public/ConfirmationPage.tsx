@@ -12,12 +12,15 @@ const ConfirmationPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (!location.state) {
+  const { appointment, client, service } = location.state || {};
+
+  // הגנה מלאה מקריסות בעת רענון או גישה ישירה
+  if (!appointment || !client || !service || !appointment.startTime) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">שגיאה</h1>
-          <p className="mb-4 text-gray-700">אין נתונים זמינים לעיבוד. אנא הזיני תור חדש דרך דף ההזמנות.</p>
+          <p className="mb-4 text-gray-700">חסרים נתוני תור. יש לבצע הזמנה מחדש.</p>
           <button
             onClick={() => navigate('/')}
             className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
@@ -28,8 +31,6 @@ const ConfirmationPage: React.FC = () => {
       </div>
     );
   }
-
-  const { appointment, client, service } = location.state;
 
   const [paymentMethod, setPaymentMethod] = useState<string>('credit');
   const [cardNumber, setCardNumber] = useState<string>('');
