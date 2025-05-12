@@ -14,6 +14,11 @@ const ConfirmationPage: React.FC = () => {
 
   const { appointment, client, service } = location.state || {};
 
+  // Convert Firebase Timestamp to JS Date
+  if (appointment && appointment.startTime && appointment.startTime.toDate) {
+    appointment.startTime = appointment.startTime.toDate();
+  }
+
   const [paymentMethod, setPaymentMethod] = useState<string>('credit');
   const [cardNumber, setCardNumber] = useState<string>('');
   const [expiryDate, setExpiryDate] = useState<string>('');
