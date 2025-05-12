@@ -1,4 +1,3 @@
-// ✅ Firebase Cloud Functions v1 - כולל Twilio, Google Calendar ותמיכה מלאה ב-SMS
 require("dotenv").config();
 
 const functions = require("firebase-functions");
@@ -18,7 +17,6 @@ const client = twilio(accountSid, authToken);
 
 const calendar = google.calendar("v3");
 
-// ✅ נטען את ההרשאות רק בזמן הריצה
 const getAuthClient = async () => {
   const auth = new google.auth.GoogleAuth({
     keyFile: path.join(__dirname, "calendar-service-account.json"),
@@ -27,7 +25,6 @@ const getAuthClient = async () => {
   return await auth.getClient();
 };
 
-// ✅ הוספת תור ל-Google Calendar
 async function addToGoogleCalendar(appointment) {
   const authClient = await getAuthClient();
   const calendarId = "calendar-owner@gmail.com";
@@ -52,20 +49,17 @@ async function addToGoogleCalendar(appointment) {
   });
 }
 
-// ✅ שליחת SMS על הזמנה (ללקוחה ולבעלת העסק)
 exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   const { phone, message, businessId, clientName, serviceName, startTime } = data;
   const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
 
   try {
-    // שליחת SMS ללקוחה
     await client.messages.create({
       body: message,
       from: fromPhone,
       to: formattedPhone,
     });
 
-    // שליפת בעלת העסק לפי businessId
     const ownerSnap = await admin.firestore()
       .collection("users")
       .where("businessId", "==", businessId)
@@ -79,14 +73,19 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
         ? owner.phone
         : `+972${owner.phone.replace(/^0/, "")}`;
 
-      const appointmentDate = new Date(startTime.seconds * 1000);
-      const day = appointmentDate.toLocaleDateString("he-IL", {
+      // תיקון לבעיה: תאריך לא תקין
+      const rawDate = typeof startTime === "object" && startTime.seconds
+        ? new Date(startTime.seconds * 1000)
+        : new Date(startTime); // אם נשלח כבר כ-Date
+
+      const day = rawDate.toLocaleDateString("he-IL", {
         weekday: "long",
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
       });
-      const time = appointmentDate.toLocaleTimeString("he-IL", {
+
+      const time = rawDate.toLocaleTimeString("he-IL", {
         hour: "2-digit",
         minute: "2-digit",
       });
@@ -110,7 +109,6 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   }
 });
 
-// ✅ תמיכה בביטול תור עם SMS נכנס
 const smsApp = express();
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 

@@ -12,7 +12,6 @@ const ConfirmationPage: React.FC = () => {
 
   const { appointment, client, service } = location.state || {};
 
-  // המרת Timestamp ל-Date
   if (
     appointment &&
     appointment.startTime &&
@@ -22,8 +21,9 @@ const ConfirmationPage: React.FC = () => {
     appointment.startTime = new Date(appointment.startTime.seconds * 1000);
   }
 
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [paymentCompleted, setPaymentCompleted] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [payNow, setPayNow] = useState(false); // ✅ תשלום מיידי
 
   if (!appointment || !client || !service || !appointment.startTime) {
     return (
@@ -83,23 +83,28 @@ const ConfirmationPage: React.FC = () => {
               <p className="text-gray-600">
                 ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה {format(appointment.startTime, 'HH:mm')}
               </p>
-              <p className="text-sm text-gray-500 mt-1">אנא בצעי תשלום באמצעות Bit</p>
+              <p className="text-sm text-gray-500 mt-1">באפשרותך לשלם כעת או במועד אחר</p>
             </div>
 
             <form onSubmit={handlePayment}>
-              <div className="p-4 border border-gray-200 rounded mb-6 text-center">
-                <p className="mb-2">שלחי תשלום באמצעות Bit למספר:</p>
-                <p className="text-xl font-bold">050-1234567</p>
-                <a
-                  href="https://bitpay.co.il/pay/0501234567"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-700 underline mt-2 block"
-                >
-                  מעבר לתשלום ב-Bit
-                </a>
-                <p className="text-gray-500 mt-2">נא לציין את שמך ותאריך התור בהערות</p>
+              <div className="mb-4">
+                <label className="flex items-center gap-2 text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={payNow}
+                    onChange={() => setPayNow(!payNow)}
+                  />
+                  אני מעוניינת לשלם עכשיו באמצעות Bit
+                </label>
               </div>
+
+              {payNow && (
+                <div className="p-4 border border-gray-200 rounded mb-6 text-center">
+                  <p className="mb-2">שלחי תשלום ל:</p>
+                  <p className="text-xl font-bold">050-1234567</p>
+                  <p className="text-gray-500 mt-2">נא לציין את שמך ותאריך התור בהערות</p>
+                </div>
+              )}
 
               <button
                 type="submit"
