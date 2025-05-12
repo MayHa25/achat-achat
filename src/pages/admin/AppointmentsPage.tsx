@@ -3,8 +3,6 @@ import {
   format,
   startOfWeek,
   addDays,
-  setHours,
-  setMinutes,
   addWeeks,
   subWeeks,
   isSameDay,
@@ -25,7 +23,6 @@ import {
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
 
-const HOURS = Array.from({ length: 12 }, (_, i) => `${9 + i}:00`);
 const WEEK_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 const AppointmentsPage: React.FC = () => {
@@ -75,18 +72,8 @@ const AppointmentsPage: React.FC = () => {
     }
   };
 
-  const getAppointmentAt = (date: Date, time: string) => {
-    const [hour, minute] = time.split(':').map(Number);
-    const slotDate = setMinutes(setHours(date, hour), minute);
-
-    return appointments.find(app => {
-      const start = (app.startTime as Timestamp).toDate();
-      return start.getTime() === slotDate.getTime();
-    });
-  };
-
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const today = new Date();
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
 
   return (
     <div className="p-6 overflow-x-auto">
@@ -103,12 +90,9 @@ const AppointmentsPage: React.FC = () => {
         </div>
       </div>
 
-      {view === 'monthly' ? (
+      {view === 'weekly' ? (
         <div className="grid grid-cols-7 gap-4">
-          {eachDayOfInterval({
-            start: startOfMonth(currentDate),
-            end: endOfMonth(currentDate)
-          }).map((day, i) => {
+          {Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((day, i) => {
             const dayAppointments = appointments.filter(app =>
               isSameDay((app.startTime as Timestamp).toDate(), day)
             );
@@ -137,7 +121,54 @@ const AppointmentsPage: React.FC = () => {
             );
           })}
         </div>
-      ) : view === 'daily' ? (
+      ) : view === 'monthly' ? (
+        <table className="min-w-full border">
+          <thead>
+            <tr>
+              {WEEK_DAYS.map((day, i) => (
+                <th key={i} className="border px-4 py-2 text-center text-sm font-medium">{day}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {(() => {
+              const days = eachDayOfInterval({
+                start: startOfMonth(currentDate),
+                end: endOfMonth(currentDate)
+              });
+              const rows = [];
+              for (let i = 0; i < days.length; i += 7) {
+                rows.push(days.slice(i, i + 7));
+              }
+              return rows.map((week, rowIdx) => (
+                <tr key={rowIdx}>
+                  {week.map((day, colIdx) => {
+                    const hasAppointments = appointments.some(app => isSameDay((app.startTime as Timestamp).toDate(), day));
+                    return (
+                      <td key={colIdx} className="border px-4 py-3 text-center">
+                        <div className="text-sm font-semibold mb-1">{format(day, 'd/M')}</div>
+                        {hasAppointments ? (
+                          <button
+                            className="text-xs bg-primary-600 text-white rounded px-2 py-1"
+                            onClick={() => {
+                              setCurrentDate(day);
+                              setView('daily');
+                            }}
+                          >
+                            צפייה
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ));
+            })()}
+          </tbody>
+        </table>
+      ) : (
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="text-xl font-bold mb-4">
             {format(currentDate, 'EEEE, d בMMMM yyyy', { locale: he })}
@@ -165,48 +196,6 @@ const AppointmentsPage: React.FC = () => {
             </ul>
           )}
         </div>
-      ) : (
-        <table className="min-w-full border">
-          <thead>
-            <tr>
-              <th className="border px-4 py-2">שעה</th>
-              {WEEK_DAYS.map((day, i) => {
-                const date = addDays(weekStart, i);
-                return (
-                  <th key={i} className="border px-4 py-2">
-                    {day} <br /> {format(date, 'd/M')}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {HOURS.map((hour, rowIdx) => (
-              <tr key={rowIdx}>
-                <td className="border px-4 py-2 font-bold text-center">{hour}</td>
-                {WEEK_DAYS.map((_, colIdx) => {
-                  const date = addDays(weekStart, colIdx);
-                  const appointment = getAppointmentAt(date, hour);
-
-                  return (
-                    <td key={colIdx} className="border px-2 py-2 text-center">
-                      {appointment ? (
-                        <button
-                          onClick={() => setSelectedAppointment(appointment)}
-                          className="text-sm bg-primary-600 text-white px-2 py-1 rounded hover:bg-primary-700"
-                        >
-                          צפייה
-                        </button>
-                      ) : (
-                        <span className="text-gray-400 text-sm">פנוי</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
       )}
 
       {selectedAppointment && (
