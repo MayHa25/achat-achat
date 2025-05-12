@@ -14,9 +14,14 @@ const ConfirmationPage: React.FC = () => {
 
   const { appointment, client, service } = location.state || {};
 
-  // Convert Firebase Timestamp to JS Date
-  if (appointment && appointment.startTime && appointment.startTime.toDate) {
-    appointment.startTime = appointment.startTime.toDate();
+  // תיקון - המרה ידנית מ-Timestamp ל-Date
+  if (
+    appointment &&
+    appointment.startTime &&
+    typeof appointment.startTime === 'object' &&
+    appointment.startTime.seconds
+  ) {
+    appointment.startTime = new Date(appointment.startTime.seconds * 1000);
   }
 
   const [paymentMethod, setPaymentMethod] = useState<string>('credit');
@@ -122,7 +127,6 @@ const ConfirmationPage: React.FC = () => {
     );
   }
 
-  // Thank you screen
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
