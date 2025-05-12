@@ -11,7 +11,14 @@ import {
   doc,
   getDoc
 } from 'firebase/firestore';
-import { addDays, startOfWeek, setHours, setMinutes, format } from 'date-fns';
+import {
+  addDays,
+  startOfWeek,
+  setHours,
+  setMinutes,
+  format,
+  addWeeks
+} from 'date-fns';
 
 const BookPage: React.FC = () => {
   const { businessId } = useParams<{ businessId: string }>();
@@ -25,6 +32,7 @@ const BookPage: React.FC = () => {
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [loading, setLoading] = useState(true);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     if (!businessId) return;
@@ -84,7 +92,7 @@ const BookPage: React.FC = () => {
     if (!selectedSlot || !selectedServiceId || !businessId || !clientName || !clientPhone) return;
 
     const selectedService = services.find(s => s.id === selectedServiceId);
-    const selectedDate = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), selectedSlot.day);
+    const selectedDate = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), selectedSlot.day + weekOffset * 7);
     const [hour, minute] = selectedSlot.time.split(':').map(Number);
     const startTime = setMinutes(setHours(selectedDate, hour), minute);
 
@@ -120,10 +128,17 @@ const BookPage: React.FC = () => {
   }
 
   const weekDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const currentWeekStart = addWeeks(startOfWeek(new Date(), { weekStartsOn: 0 }), weekOffset);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6">קביעת תור</h1>
+
+      <div className="flex justify-between mb-4">
+        <button onClick={() => setWeekOffset(weekOffset - 1)} className="px-3 py-1 bg-gray-200 rounded">← שבוע קודם</button>
+        <button onClick={() => setWeekOffset(0)} className="px-3 py-1 bg-blue-100 rounded">שבוע נוכחי</button>
+        <button onClick={() => setWeekOffset(weekOffset + 1)} className="px-3 py-1 bg-gray-200 rounded">שבוע הבא →</button>
+      </div>
 
       {services.length === 0 && (
         <p className="text-center text-gray-500 mt-4">אין שירותים זמינים להצגה. אנא בדקי בהגדרות העסק.</p>
@@ -160,7 +175,7 @@ const BookPage: React.FC = () => {
               <thead>
                 <tr>
                   {weekDays.map((day, i) => {
-                    const date = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), i);
+                    const date = addDays(currentWeekStart, i);
                     return (
                       <th key={i} className="border px-4 py-2 text-sm font-medium">
                         {day} <br />
@@ -176,7 +191,7 @@ const BookPage: React.FC = () => {
                     {weekDays.map((_, dayIndex) => {
                       const hours = getAvailableHoursForDay(dayIndex);
                       const time = hours[row];
-                      const date = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), dayIndex);
+                      const date = addDays(currentWeekStart, dayIndex);
 
                       if (!time) {
                         return <td key={dayIndex} className="border px-4 py-2 text-center text-gray-300">—</td>;

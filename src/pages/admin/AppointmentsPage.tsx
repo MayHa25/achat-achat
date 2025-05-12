@@ -8,6 +8,9 @@ import {
   addWeeks,
   subWeeks,
   isSameDay,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval
 } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
@@ -30,7 +33,7 @@ const AppointmentsPage: React.FC = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [servicesMap, setServicesMap] = useState<Record<string, string>>({});
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
-  const [view, setView] = useState<'weekly' | 'daily' | 'monthly'>('weekly');
+  const [view, setView] = useState<'weekly' | 'daily' | 'monthly'>('monthly');
   const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
@@ -91,7 +94,7 @@ const AppointmentsPage: React.FC = () => {
         <div className="space-x-2">
           <button onClick={() => setView('daily')} className={`px-3 py-1 rounded ${view === 'daily' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>יומי</button>
           <button onClick={() => setView('weekly')} className={`px-3 py-1 rounded ${view === 'weekly' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>שבועי</button>
-          <button onClick={() => setView('monthly')} disabled className="px-3 py-1 rounded bg-gray-100 text-gray-400 cursor-not-allowed">חודשי (בקרוב)</button>
+          <button onClick={() => setView('monthly')} className={`px-3 py-1 rounded ${view === 'monthly' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>חודשי</button>
         </div>
         <div className="space-x-2">
           <button onClick={() => setCurrentDate(today)} className="px-3 py-1 bg-blue-100 rounded">היום</button>
@@ -100,7 +103,41 @@ const AppointmentsPage: React.FC = () => {
         </div>
       </div>
 
-      {view === 'daily' ? (
+      {view === 'monthly' ? (
+        <div className="grid grid-cols-7 gap-4">
+          {eachDayOfInterval({
+            start: startOfMonth(currentDate),
+            end: endOfMonth(currentDate)
+          }).map((day, i) => {
+            const dayAppointments = appointments.filter(app =>
+              isSameDay((app.startTime as Timestamp).toDate(), day)
+            );
+
+            return (
+              <div key={i} className="border rounded-lg p-3 bg-white shadow-sm">
+                <div className="font-bold mb-1 text-sm">
+                  {format(day, 'd/M (EEEE)', { locale: he })}
+                </div>
+                {dayAppointments.length === 0 ? (
+                  <p className="text-gray-400 text-xs">אין תורים</p>
+                ) : (
+                  <ul className="text-xs space-y-1">
+                    {dayAppointments.map(app => (
+                      <li
+                        key={app.id}
+                        className="cursor-pointer hover:underline"
+                        onClick={() => setSelectedAppointment(app)}
+                      >
+                        {format((app.startTime as Timestamp).toDate(), 'HH:mm')} - {app.clientName}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : view === 'daily' ? (
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="text-xl font-bold mb-4">
             {format(currentDate, 'EEEE, d בMMMM yyyy', { locale: he })}
