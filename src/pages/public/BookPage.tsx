@@ -9,7 +9,8 @@ import {
   addDoc,
   Timestamp,
   doc,
-  getDoc
+  getDoc,
+  updateDoc
 } from 'firebase/firestore';
 import {
   addDays,
@@ -41,7 +42,6 @@ const BookPage: React.FC = () => {
       try {
         const servicesQuery = query(collection(db, 'services'), where('businessId', '==', businessId));
         const appointmentsQuery = query(collection(db, 'appointments'), where('businessId', '==', businessId));
-
         const [servicesSnap, appointmentsSnap, availabilityDocSnap] = await Promise.all([
           getDocs(servicesQuery),
           getDocs(appointmentsQuery),
@@ -50,7 +50,6 @@ const BookPage: React.FC = () => {
 
         setServices(servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setAppointments(appointmentsSnap.docs.map(doc => doc.data()));
-
         const availabilityData = availabilityDocSnap.data();
         setAvailabilities(availabilityData?.businessHours || []);
       } catch (err) {
@@ -69,7 +68,6 @@ const BookPage: React.FC = () => {
 
     const startHour = parseInt(dayAvailability.startTime.split(':')[0]);
     const endHour = parseInt(dayAvailability.endTime.split(':')[0]);
-
     const hours: string[] = [];
     for (let h = startHour; h < endHour; h++) {
       hours.push(`${h.toString().padStart(2, '0')}:00`);
@@ -81,7 +79,6 @@ const BookPage: React.FC = () => {
     const timeDate = new Date(date);
     const [h, m] = time.split(':');
     timeDate.setHours(parseInt(h), parseInt(m), 0, 0);
-
     return appointments.some(appt => {
       const startTime = (appt.startTime as Timestamp).toDate();
       return startTime.getTime() === timeDate.getTime();
@@ -95,6 +92,7 @@ const BookPage: React.FC = () => {
     const selectedDate = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), selectedSlot.day + weekOffset * 7);
     const [hour, minute] = selectedSlot.time.split(':').map(Number);
     const startTime = setMinutes(setHours(selectedDate, hour), minute);
+    const price = selectedService?.price || 0;
 
     const newAppointment = {
       businessId,
@@ -103,16 +101,40 @@ const BookPage: React.FC = () => {
       clientPhone,
       startTime: Timestamp.fromDate(startTime),
       duration: selectedService?.duration || 30,
-      price: selectedService?.price || 0,
+      price,
       status: 'pending',
       created: Timestamp.now()
     };
 
-    const docRef = await addDoc(collection(db, 'appointments'), newAppointment);
+    await addDoc(collection(db, 'appointments'), newAppointment);
+
+    const clientQuery = query(
+      collection(db, 'clients'),
+      where('businessId', '==', businessId),
+      where('phone', '==', clientPhone)
+    );
+    const clientSnap = await getDocs(clientQuery);
+
+    if (!clientSnap.empty) {
+      const clientDoc = clientSnap.docs[0];
+      const data = clientDoc.data();
+      await updateDoc(doc(db, 'clients', clientDoc.id), {
+        visitCount: (data.visitCount || 0) + 1,
+        totalAmount: (data.totalAmount || 0) + price
+      });
+    } else {
+      await addDoc(collection(db, 'clients'), {
+        businessId,
+        name: clientName,
+        phone: clientPhone,
+        visitCount: 1,
+        totalAmount: price
+      });
+    }
 
     navigate('/confirmation', {
       state: {
-        appointment: { ...newAppointment, id: docRef.id },
+        appointment: { ...newAppointment },
         client: { name: clientName, phone: clientPhone },
         service: selectedService
       }
@@ -139,14 +161,6 @@ const BookPage: React.FC = () => {
         <button onClick={() => setWeekOffset(0)} className="px-3 py-1 bg-blue-100 rounded">שבוע נוכחי</button>
         <button onClick={() => setWeekOffset(weekOffset + 1)} className="px-3 py-1 bg-gray-200 rounded">שבוע הבא →</button>
       </div>
-
-      {services.length === 0 && (
-        <p className="text-center text-gray-500 mt-4">אין שירותים זמינים להצגה. אנא בדקי בהגדרות העסק.</p>
-      )}
-
-      {availabilities.length === 0 && (
-        <p className="text-center text-gray-500 mt-4">בעלת העסק לא הגדירה שעות פעילות.</p>
-      )}
 
       <div className="mb-6">
         <h2 className="font-medium mb-2">בחרי שירות</h2>
