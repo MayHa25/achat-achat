@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { format } from 'date-fns';
+import { format, startOfWeek, addDays, setHours, setMinutes } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query, where, deleteDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
-import { Timestamp } from 'firebase/firestore';
+
+const HOURS = Array.from({ length: 12 }, (_, i) => `${9 + i}:00`); // שעות מ-9:00 עד 20:00
+const WEEK_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 const AppointmentsPage: React.FC = () => {
   const { user } = useStore();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [servicesMap, setServicesMap] = useState<Record<string, string>>({});
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
 
   useEffect(() => {
     if (!user?.businessId) return;
@@ -29,7 +32,7 @@ const AppointmentsPage: React.FC = () => {
 
         const appointmentsData = appointmentsSnap.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         }));
         setAppointments(appointmentsData);
       } catch (error) {
@@ -44,42 +47,98 @@ const AppointmentsPage: React.FC = () => {
     try {
       await deleteDoc(doc(db, 'appointments', appointmentId));
       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
+      setSelectedAppointment(null);
     } catch (error) {
       console.error('שגיאה בביטול תור:', error);
     }
   };
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">רשימת תורים</h1>
-      <div className="bg-white rounded-lg shadow p-6">
-        {appointments.length === 0 ? (
-          <p className="text-gray-600">לא נמצאו תורים.</p>
-        ) : (
-          <div className="space-y-4">
-            {appointments.map(app => {
-              const start = (app.startTime as Timestamp).toDate();
-              const serviceName = servicesMap[app.serviceId] || 'לא צוין';
+  const getAppointmentAt = (date: Date, time: string) => {
+    const [hour, minute] = time.split(':').map(Number);
+    const slotDate = setMinutes(setHours(date, hour), minute);
 
+    return appointments.find(app => {
+      const start = (app.startTime as Timestamp).toDate();
+      return start.getTime() === slotDate.getTime();
+    });
+  };
+
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
+
+  return (
+    <div className="p-6 overflow-x-auto">
+      <h1 className="text-2xl font-bold mb-6">תצוגת תורים שבועית</h1>
+
+      <table className="min-w-full border">
+        <thead>
+          <tr>
+            <th className="border px-4 py-2">שעה</th>
+            {WEEK_DAYS.map((day, i) => {
+              const date = addDays(weekStart, i);
               return (
-                <div key={app.id} className="border-b border-gray-200 pb-4">
-                  <p><strong>שם לקוחה:</strong> {app.clientName}</p>
-                  <p><strong>טיפול:</strong> {serviceName}</p>
-                  <p><strong>מחיר:</strong> ₪{app.price || 'לא צוין'}</p>
-                  <p><strong>תאריך:</strong> {format(start, 'd בMMMM yyyy', { locale: he })}</p>
-                  <p><strong>שעה:</strong> {format(start, 'HH:mm')}</p>
-                  <button
-                    onClick={() => cancelAppointment(app.id)}
-                    className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-                  >
-                    בטלי תור
-                  </button>
-                </div>
+                <th key={i} className="border px-4 py-2">
+                  {day} <br /> {format(date, 'd/M')}
+                </th>
               );
             })}
+          </tr>
+        </thead>
+        <tbody>
+          {HOURS.map((hour, rowIdx) => (
+            <tr key={rowIdx}>
+              <td className="border px-4 py-2 font-bold text-center">{hour}</td>
+              {WEEK_DAYS.map((_, colIdx) => {
+                const date = addDays(weekStart, colIdx);
+                const appointment = getAppointmentAt(date, hour);
+
+                return (
+                  <td key={colIdx} className="border px-2 py-2 text-center">
+                    {appointment ? (
+                      <button
+                        onClick={() => setSelectedAppointment(appointment)}
+                        className="text-sm bg-primary-600 text-white px-2 py-1 rounded hover:bg-primary-700"
+                      >
+                        צפייה
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-sm">פנוי</span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* מודל צפייה בתור */}
+      {selectedAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">פרטי תור</h2>
+            <p><strong>לקוחה:</strong> {selectedAppointment.clientName}</p>
+            <p><strong>טלפון:</strong> {selectedAppointment.clientPhone}</p>
+            <p><strong>טיפול:</strong> {servicesMap[selectedAppointment.serviceId] || '—'}</p>
+            <p><strong>תאריך:</strong> {format((selectedAppointment.startTime as Timestamp).toDate(), 'd בMMMM yyyy', { locale: he })}</p>
+            <p><strong>שעה:</strong> {format((selectedAppointment.startTime as Timestamp).toDate(), 'HH:mm')}</p>
+
+            <div className="mt-4 flex justify-between">
+              <button
+                onClick={() => cancelAppointment(selectedAppointment.id)}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                בטל תור
+              </button>
+              <button
+                onClick={() => setSelectedAppointment(null)}
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+              >
+                סגור
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
