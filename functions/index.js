@@ -17,13 +17,19 @@ const fromPhone = functions.config()?.twilio?.phone || process.env.TWILIO_PHONE;
 const client = twilio(accountSid, authToken);
 
 const calendar = google.calendar("v3");
-const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(__dirname, "calendar-service-account.json"),
-  scopes: ["https://www.googleapis.com/auth/calendar"],
-});
 
+// ✅ נטען את ההרשאות רק בזמן הריצה
+const getAuthClient = async () => {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: path.join(__dirname, "calendar-service-account.json"),
+    scopes: ["https://www.googleapis.com/auth/calendar"],
+  });
+  return await auth.getClient();
+};
+
+// ✅ הוספת תור ל-Google Calendar
 async function addToGoogleCalendar(appointment) {
-  const authClient = await auth.getClient();
+  const authClient = await getAuthClient();
   const calendarId = "calendar-owner@gmail.com";
 
   const event = {
@@ -46,10 +52,9 @@ async function addToGoogleCalendar(appointment) {
   });
 }
 
-// ✅ פונקציה לשליחת SMS עם טקסט מותאם אישית
+// ✅ שליחת SMS על הזמנה
 exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   const { phone, message } = data;
-
   const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
 
   try {
@@ -66,7 +71,7 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   }
 });
 
-// ✅ תמיכה בהודעת ביטול על ידי SMS נכנס עם הספרה "1"
+// ✅ תמיכה בביטול תור עם SMS נכנס
 const smsApp = express();
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 
