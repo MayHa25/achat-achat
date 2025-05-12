@@ -52,21 +52,60 @@ async function addToGoogleCalendar(appointment) {
   });
 }
 
-// ✅ שליחת SMS על הזמנה
+// ✅ שליחת SMS על הזמנה (ללקוחה ולבעלת העסק)
 exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
-  const { phone, message } = data;
+  const { phone, message, businessId, clientName, serviceName, startTime } = data;
   const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
 
   try {
-    const sms = await client.messages.create({
+    // שליחת SMS ללקוחה
+    await client.messages.create({
       body: message,
       from: fromPhone,
       to: formattedPhone,
     });
 
-    return { success: true, sid: sms.sid };
+    // שליפת בעלת העסק לפי businessId
+    const ownerSnap = await admin.firestore()
+      .collection("users")
+      .where("businessId", "==", businessId)
+      .where("role", "==", "admin")
+      .limit(1)
+      .get();
+
+    if (!ownerSnap.empty) {
+      const owner = ownerSnap.docs[0].data();
+      const formattedOwnerPhone = owner.phone.startsWith("+")
+        ? owner.phone
+        : `+972${owner.phone.replace(/^0/, "")}`;
+
+      const appointmentDate = new Date(startTime.seconds * 1000);
+      const day = appointmentDate.toLocaleDateString("he-IL", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      const time = appointmentDate.toLocaleTimeString("he-IL", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const ownerMessage = `📅 תור חדש נקבע:
+לקוחה: ${clientName}
+שירות: ${serviceName}
+תאריך: ${day} בשעה ${time}`;
+
+      await client.messages.create({
+        body: ownerMessage,
+        from: fromPhone,
+        to: formattedOwnerPhone,
+      });
+    }
+
+    return { success: true };
   } catch (error) {
-    console.error("שגיאה בשליחת SMS מיידי:", error);
+    console.error("שגיאה בשליחת SMS:", error);
     throw new functions.https.HttpsError("internal", "שליחת SMS נכשלה");
   }
 });
