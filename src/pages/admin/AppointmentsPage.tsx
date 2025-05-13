@@ -5,6 +5,8 @@ import {
   addDays,
   addWeeks,
   subWeeks,
+  addMonths,
+  subMonths,
   isSameDay,
   startOfMonth,
   endOfMonth,
@@ -75,6 +77,16 @@ const AppointmentsPage: React.FC = () => {
   const today = new Date();
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
 
+  const handleNavigation = (direction: 'prev' | 'next') => {
+    if (view === 'daily') {
+      setCurrentDate(prev => direction === 'next' ? addDays(prev, 1) : subWeeks(prev, 1));
+    } else if (view === 'weekly') {
+      setCurrentDate(prev => direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1));
+    } else {
+      setCurrentDate(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
+    }
+  };
+
   return (
     <div className="p-6 overflow-x-auto">
       <div className="flex justify-between items-center mb-4">
@@ -85,8 +97,8 @@ const AppointmentsPage: React.FC = () => {
         </div>
         <div className="space-x-2">
           <button onClick={() => setCurrentDate(today)} className="px-3 py-1 bg-blue-100 rounded">היום</button>
-          <button onClick={() => setCurrentDate(subWeeks(currentDate, 1))} className="px-3 py-1">←</button>
-          <button onClick={() => setCurrentDate(addWeeks(currentDate, 1))} className="px-3 py-1">→</button>
+          <button onClick={() => handleNavigation('prev')} className="px-3 py-1">←</button>
+          <button onClick={() => handleNavigation('next')} className="px-3 py-1">→</button>
         </div>
       </div>
 
