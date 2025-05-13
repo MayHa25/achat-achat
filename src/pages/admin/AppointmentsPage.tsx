@@ -80,6 +80,10 @@ const AppointmentsPage: React.FC = () => {
       const formattedDate = format(appDate, 'd בMMMM yyyy', { locale: he });
       const formattedTime = format(appDate, 'HH:mm');
 
+      await deleteDoc(doc(db, 'appointments', appointmentId));
+      setAppointments(prev => prev.filter(app => app.id !== appointmentId));
+      setSelectedAppointment(null);
+
       await fetch('https://us-central1-achat-achat.cloudfunctions.net/sendSms', {
         method: 'POST',
         headers: {
@@ -90,10 +94,6 @@ const AppointmentsPage: React.FC = () => {
           message: `שלום ${appointment.clientName}, התור שלך בתאריך ${formattedDate} בשעה ${formattedTime} בוטל. לתיאום חדש פני אלינו.`,
         }),
       });
-
-      await deleteDoc(doc(db, 'appointments', appointmentId));
-      setAppointments(prev => prev.filter(app => app.id !== appointmentId));
-      setSelectedAppointment(null);
     } catch (error) {
       console.error('שגיאה בביטול תור:', error);
     }
@@ -111,7 +111,6 @@ const AppointmentsPage: React.FC = () => {
       setCurrentDate(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
     }
   };
-
   return (
     <div className="p-6 overflow-x-auto">
       <div className="flex justify-between items-center mb-4">
@@ -214,7 +213,8 @@ const AppointmentsPage: React.FC = () => {
             <p className="text-gray-500">אין תורים ביום זה.</p>
           ) : (
             <ul className="space-y-3">
-              {appointments.filter(app => isSameDay((app.startTime as Timestamp).toDate(), currentDate))
+              {appointments
+                .filter(app => isSameDay((app.startTime as Timestamp).toDate(), currentDate))
                 .sort((a, b) => ((a.startTime as Timestamp).toDate().getTime() - (b.startTime as Timestamp).toDate().getTime()))
                 .map(app => {
                   const appDate = (app.startTime as Timestamp).toDate();
