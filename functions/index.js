@@ -114,15 +114,21 @@ exports.sendSms = functions.https.onRequest(async (req, res) => {
   const { to, message } = req.body;
   const formattedPhone = to.startsWith("+") ? to : `+972${to.replace(/^0/, "")}`;
 
+  console.log("📨 התחלת שליחת SMS...");
+  console.log("אל:", formattedPhone);
+  console.log("תוכן:", message);
+
   try {
-    await client.messages.create({
+    const result = await client.messages.create({
       body: message,
       from: fromPhone,
       to: formattedPhone,
     });
+
+    console.log("✅ נשלח בהצלחה:", result.sid);
     res.status(200).send({ success: true });
   } catch (error) {
-    console.error("שגיאה בשליחת SMS:", error);
+    console.error("❌ שגיאה בשליחת SMS:", error.message);
     res.status(500).send({ success: false, error: error.message });
   }
 });
