@@ -115,20 +115,35 @@ const BookPage: React.FC = () => {
     );
     const clientSnap = await getDocs(clientQuery);
 
+    let updatedVisitCount = 1;
+    let updatedTotalAmount = price;
+    let clientStatus = 'מזדמן';
+
     if (!clientSnap.empty) {
       const clientDoc = clientSnap.docs[0];
       const data = clientDoc.data();
+      updatedVisitCount = (data.visitCount || 0) + 1;
+      updatedTotalAmount = (data.totalAmount || 0) + price;
+
+      if (updatedVisitCount >= 11) {
+        clientStatus = 'VIP';
+      } else if (updatedVisitCount >= 5) {
+        clientStatus = 'קבוע';
+      }
+
       await updateDoc(doc(db, 'clients', clientDoc.id), {
-        visitCount: (data.visitCount || 0) + 1,
-        totalAmount: (data.totalAmount || 0) + price
+        visitCount: updatedVisitCount,
+        totalAmount: updatedTotalAmount,
+        status: clientStatus
       });
     } else {
       await addDoc(collection(db, 'clients'), {
         businessId,
         name: clientName,
         phone: clientPhone,
-        visitCount: 1,
-        totalAmount: price
+        visitCount: updatedVisitCount,
+        totalAmount: updatedTotalAmount,
+        status: clientStatus
       });
     }
 

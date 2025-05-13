@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
 import { format } from 'date-fns';
@@ -8,33 +8,46 @@ import { he } from 'date-fns/locale';
 interface Appointment {
   id: string;
   clientName: string;
-  serviceName: string;
-  date: string | number | Date;
+  serviceId: string;
+  startTime: Timestamp;
   price: number;
 }
 
 const PaymentsPage: React.FC = () => {
   const { user } = useStore();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [servicesMap, setServicesMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!user?.businessId) return;
 
-    const fetchAppointments = async () => {
+    const fetchData = async () => {
       try {
-        const q = query(collection(db, 'appointments'), where('businessId', '==', user.businessId));
-        const snapshot = await getDocs(q);
-        const all = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Appointment[];
+        const appointmentsQuery = query(collection(db, 'appointments'), where('businessId', '==', user.businessId));
+        const servicesQuery = query(collection(db, 'services'), where('businessId', '==', user.businessId));
+
+        const [appointmentsSnap, servicesSnap] = await Promise.all([
+          getDocs(appointmentsQuery),
+          getDocs(servicesQuery)
+        ]);
+
+        const services: Record<string, string> = {};
+        servicesSnap.docs.forEach(doc => {
+          services[doc.id] = doc.data().name;
+        });
+        setServicesMap(services);
 
         const now = new Date();
 
-        const filtered = all.filter(app => {
-          const appDate = new Date(app.date);
-          return appDate < now && app.price > 0;
-        });
+        const filtered = appointmentsSnap.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          }) as Appointment)
+          .filter(app => {
+            const appDate = app.startTime?.toDate?.();
+            return appDate && appDate < now && app.price > 0;
+          });
 
         setAppointments(filtered);
       } catch (error) {
@@ -42,7 +55,7 @@ const PaymentsPage: React.FC = () => {
       }
     };
 
-    fetchAppointments();
+    fetchData();
   }, [user?.businessId]);
 
   const totalIncome = appointments.reduce((sum, app) => sum + (app.price || 0), 0);
@@ -64,7 +77,8 @@ const PaymentsPage: React.FC = () => {
                 <div>
                   <p className="font-semibold">{app.clientName}</p>
                   <p className="text-sm text-gray-500">
-                    {app.serviceName} | {format(new Date(app.date), 'd בMMMM yyyy', { locale: he })}
+                    {servicesMap[app.serviceId] || 'שירות לא ידוע'} |{' '}
+                    {format(app.startTime.toDate(), 'd בMMMM yyyy', { locale: he })}
                   </p>
                 </div>
                 <span className="font-bold text-green-700">₪{app.price}</span>

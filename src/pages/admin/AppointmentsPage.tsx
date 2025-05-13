@@ -9,9 +9,10 @@ import {
   addMonths,
   subMonths,
   isSameDay,
+  isBefore,
   startOfMonth,
   endOfMonth,
-  eachDayOfInterval
+  eachDayOfInterval,
 } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
@@ -27,6 +28,11 @@ import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
 
 const WEEK_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+const isPast = (date: Date) => {
+  const now = new Date();
+  return isBefore(date, now);
+};
 
 const AppointmentsPage: React.FC = () => {
   const { user } = useStore();
@@ -192,20 +198,28 @@ const AppointmentsPage: React.FC = () => {
             <ul className="space-y-3">
               {appointments.filter(app => isSameDay((app.startTime as Timestamp).toDate(), currentDate))
                 .sort((a, b) => ((a.startTime as Timestamp).toDate().getTime() - (b.startTime as Timestamp).toDate().getTime()))
-                .map(app => (
-                <li key={app.id} className="border p-3 rounded flex justify-between items-center">
-                  <div>
-                    <p><strong>{format((app.startTime as Timestamp).toDate(), 'HH:mm')}</strong> - {app.clientName}</p>
-                    <p className="text-sm text-gray-500">{servicesMap[app.serviceId]}</p>
-                  </div>
-                  <button
-                    onClick={() => cancelAppointment(app.id)}
-                    className="px-3 py-1 bg-red-500 text-white rounded"
-                  >
-                    בטל
-                  </button>
-                </li>
-              ))}
+                .map(app => {
+                  const appDate = (app.startTime as Timestamp).toDate();
+                  return (
+                    <li key={app.id} className="border p-3 rounded flex justify-between items-center">
+                      <div>
+                        <p><strong>{format(appDate, 'HH:mm')}</strong> - {app.clientName}</p>
+                        <p className="text-sm text-gray-500">{servicesMap[app.serviceId]}</p>
+                      </div>
+                      <button
+                        disabled={isPast(appDate)}
+                        onClick={() => cancelAppointment(app.id)}
+                        className={`px-3 py-1 rounded ${
+                          isPast(appDate)
+                            ? 'bg-gray-300 text-gray-600 cursor-default'
+                            : 'bg-red-500 text-white'
+                        }`}
+                      >
+                        {isPast(appDate) ? 'בוצע' : 'בטל'}
+                      </button>
+                    </li>
+                  );
+                })}
             </ul>
           )}
         </div>
