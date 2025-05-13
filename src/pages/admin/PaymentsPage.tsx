@@ -17,6 +17,7 @@ const PaymentsPage: React.FC = () => {
   const { user } = useStore();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [servicesMap, setServicesMap] = useState<Record<string, string>>({});
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!user?.businessId) return;
@@ -58,6 +59,19 @@ const PaymentsPage: React.FC = () => {
     fetchData();
   }, [user?.businessId]);
 
+  const groupedByClient = appointments.reduce<Record<string, Appointment[]>>((acc, app) => {
+    if (!acc[app.clientName]) acc[app.clientName] = [];
+    acc[app.clientName].push(app);
+    return acc;
+  }, {});
+
+  const toggleExpand = (clientName: string) => {
+    setExpandedClients(prev => ({
+      ...prev,
+      [clientName]: !prev[clientName]
+    }));
+  };
+
   const totalIncome = appointments.reduce((sum, app) => sum + (app.price || 0), 0);
 
   return (
@@ -72,18 +86,40 @@ const PaymentsPage: React.FC = () => {
           <p className="text-gray-600">אין תורים שהסתיימו עם תשלום.</p>
         ) : (
           <ul className="divide-y divide-gray-200">
-            {appointments.map(app => (
-              <li key={app.id} className="py-3 flex justify-between items-center">
-                <div>
-                  <p className="font-semibold">{app.clientName}</p>
-                  <p className="text-sm text-gray-500">
-                    {servicesMap[app.serviceId] || 'שירות לא ידוע'} |{' '}
-                    {format(app.startTime.toDate(), 'd בMMMM yyyy', { locale: he })}
-                  </p>
-                </div>
-                <span className="font-bold text-green-700">₪{app.price}</span>
-              </li>
-            ))}
+            {Object.entries(groupedByClient).map(([clientName, clientAppointments]) => {
+              const total = clientAppointments.reduce((sum, app) => sum + (app.price || 0), 0);
+              const isExpanded = expandedClients[clientName];
+
+              return (
+                <li key={clientName} className="py-3">
+                  <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExpand(clientName)}>
+                    <p className="font-semibold text-lg">{clientName}</p>
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-green-700">₪{total}</span>
+                      <span className="text-blue-600 text-sm underline">
+                        {isExpanded ? 'סגור' : 'צפייה'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <ul className="mt-3 space-y-2 bg-gray-50 p-3 rounded">
+                      {clientAppointments.map(app => (
+                        <li key={app.id} className="flex justify-between items-center text-sm">
+                          <div>
+                            <p>{servicesMap[app.serviceId] || 'שירות לא ידוע'}</p>
+                            <p className="text-gray-500">
+                              {format(app.startTime.toDate(), 'd בMMMM yyyy', { locale: he })}
+                            </p>
+                          </div>
+                          <span className="text-green-600 font-medium">₪{app.price}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
