@@ -5,6 +5,7 @@ import {
   addDays,
   addWeeks,
   subWeeks,
+  subDays,
   addMonths,
   subMonths,
   isSameDay,
@@ -79,7 +80,7 @@ const AppointmentsPage: React.FC = () => {
 
   const handleNavigation = (direction: 'prev' | 'next') => {
     if (view === 'daily') {
-      setCurrentDate(prev => direction === 'next' ? addDays(prev, 1) : subWeeks(prev, 1));
+      setCurrentDate(prev => direction === 'next' ? addDays(prev, 1) : subDays(prev, 1));
     } else if (view === 'weekly') {
       setCurrentDate(prev => direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1));
     } else {
