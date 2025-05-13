@@ -80,8 +80,7 @@ const AppointmentsPage: React.FC = () => {
       const formattedDate = format(appDate, 'd בMMMM yyyy', { locale: he });
       const formattedTime = format(appDate, 'HH:mm');
 
-      // שליחת SMS ללקוחה לפני המחיקה
-      await fetch('/api/send-sms', {
+      await fetch('https://us-central1-achat-achat.cloudfunctions.net/sendSms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
