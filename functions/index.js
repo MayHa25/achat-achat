@@ -49,6 +49,7 @@ async function addToGoogleCalendar(appointment) {
   });
 }
 
+// === שליחת SMS מתוך Firebase Functions - onCall ===
 exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   const { phone, message, businessId, clientName, serviceName, startTime } = data;
   const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
@@ -73,10 +74,9 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
         ? owner.phone
         : `+972${owner.phone.replace(/^0/, "")}`;
 
-      // תיקון לבעיה: תאריך לא תקין
       const rawDate = typeof startTime === "object" && startTime.seconds
         ? new Date(startTime.seconds * 1000)
-        : new Date(startTime); // אם נשלח כבר כ-Date
+        : new Date(startTime);
 
       const day = rawDate.toLocaleDateString("he-IL", {
         weekday: "long",
@@ -109,6 +109,25 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   }
 });
 
+// === שליחת SMS פשוטה דרך fetch מה-Frontend ===
+exports.sendSms = functions.https.onRequest(async (req, res) => {
+  const { to, message } = req.body;
+  const formattedPhone = to.startsWith("+") ? to : `+972${to.replace(/^0/, "")}`;
+
+  try {
+    await client.messages.create({
+      body: message,
+      from: fromPhone,
+      to: formattedPhone,
+    });
+    res.status(200).send({ success: true });
+  } catch (error) {
+    console.error("שגיאה בשליחת SMS:", error);
+    res.status(500).send({ success: false, error: error.message });
+  }
+});
+
+// === ניהול הודעות נכנסות מהלקוחה ===
 const smsApp = express();
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 

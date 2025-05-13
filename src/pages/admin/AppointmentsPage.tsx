@@ -73,6 +73,25 @@ const AppointmentsPage: React.FC = () => {
 
   const cancelAppointment = async (appointmentId: string) => {
     try {
+      const appointment = appointments.find(app => app.id === appointmentId);
+      if (!appointment) return;
+
+      const appDate = (appointment.startTime as Timestamp).toDate();
+      const formattedDate = format(appDate, 'd בMMMM yyyy', { locale: he });
+      const formattedTime = format(appDate, 'HH:mm');
+
+      // שליחת SMS ללקוחה לפני המחיקה
+      await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: appointment.clientPhone,
+          message: `שלום ${appointment.clientName}, התור שלך בתאריך ${formattedDate} בשעה ${formattedTime} בוטל. לתיאום חדש פני אלינו.`,
+        }),
+      });
+
       await deleteDoc(doc(db, 'appointments', appointmentId));
       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
       setSelectedAppointment(null);
