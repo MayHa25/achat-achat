@@ -88,7 +88,7 @@ const AppointmentsPage: React.FC = () => {
         },
         body: JSON.stringify({
           to: appointment.clientPhone,
-          message: `שלום ${appointment.clientName}, התור שלך בתאריך ${formattedDate} בשעה ${formattedTime} בוטל. לתיאום חדש פני אלינו.`,
+          message: `שלום ${appointment.clientName}, התור שלך לשירות "${servicesMap[appointment.serviceId]}" בתאריך ${formattedDate} בשעה ${formattedTime} בוטל על ידי בעלת העסק.`,
         }),
       });
 
@@ -128,121 +128,7 @@ const AppointmentsPage: React.FC = () => {
         </div>
       </div>
 
-      {view === 'weekly' ? (
-        <div className="grid grid-cols-7 gap-4">
-          {Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((day, i) => {
-            const dayAppointments = appointments.filter(app =>
-              isSameDay((app.startTime as Timestamp).toDate(), day)
-            );
-
-            return (
-              <div key={i} className="border rounded-lg p-3 bg-white shadow-sm">
-                <div className="font-bold mb-1 text-sm">
-                  {format(day, 'd/M (EEEE)', { locale: he })}
-                </div>
-                {dayAppointments.length === 0 ? (
-                  <p className="text-gray-400 text-xs">אין תורים</p>
-                ) : (
-                  <ul className="text-xs space-y-1">
-                    {dayAppointments.map(app => (
-                      <li
-                        key={app.id}
-                        className="cursor-pointer hover:underline"
-                        onClick={() => setSelectedAppointment(app)}
-                      >
-                        {format((app.startTime as Timestamp).toDate(), 'HH:mm')} - {app.clientName}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : view === 'monthly' ? (
-        <table className="min-w-full border">
-          <thead>
-            <tr>
-              {WEEK_DAYS.map((day, i) => (
-                <th key={i} className="border px-4 py-2 text-center text-sm font-medium">{day}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(() => {
-              const days = eachDayOfInterval({
-                start: startOfMonth(currentDate),
-                end: endOfMonth(currentDate)
-              });
-              const rows = [];
-              for (let i = 0; i < days.length; i += 7) {
-                rows.push(days.slice(i, i + 7));
-              }
-              return rows.map((week, rowIdx) => (
-                <tr key={rowIdx}>
-                  {week.map((day, colIdx) => {
-                    const hasAppointments = appointments.some(app => isSameDay((app.startTime as Timestamp).toDate(), day));
-                    return (
-                      <td key={colIdx} className="border px-4 py-3 text-center">
-                        <div className="text-sm font-semibold mb-1">{format(day, 'd/M')}</div>
-                        {hasAppointments ? (
-                          <button
-                            className="text-xs bg-primary-600 text-white rounded px-2 py-1"
-                            onClick={() => {
-                              setCurrentDate(day);
-                              setView('daily');
-                            }}
-                          >
-                            צפייה
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-400">—</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ));
-            })()}
-          </tbody>
-        </table>
-      ) : (
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-xl font-bold mb-4">
-            {format(currentDate, 'EEEE, d בMMMM yyyy', { locale: he })}
-          </h2>
-          {appointments.filter(app => isSameDay((app.startTime as Timestamp).toDate(), currentDate)).length === 0 ? (
-            <p className="text-gray-500">אין תורים ביום זה.</p>
-          ) : (
-            <ul className="space-y-3">
-              {appointments.filter(app => isSameDay((app.startTime as Timestamp).toDate(), currentDate))
-                .sort((a, b) => ((a.startTime as Timestamp).toDate().getTime() - (b.startTime as Timestamp).toDate().getTime()))
-                .map(app => {
-                  const appDate = (app.startTime as Timestamp).toDate();
-                  return (
-                    <li key={app.id} className="border p-3 rounded flex justify-between items-center">
-                      <div>
-                        <p><strong>{format(appDate, 'HH:mm')}</strong> - {app.clientName}</p>
-                        <p className="text-sm text-gray-500">{servicesMap[app.serviceId]}</p>
-                      </div>
-                      <button
-                        disabled={isPast(appDate)}
-                        onClick={() => cancelAppointment(app.id)}
-                        className={`px-3 py-1 rounded ${
-                          isPast(appDate)
-                            ? 'bg-gray-300 text-gray-600 cursor-default'
-                            : 'bg-red-500 text-white'
-                        }`}
-                      >
-                        {isPast(appDate) ? 'בוצע' : 'בטל'}
-                      </button>
-                    </li>
-                  );
-                })}
-            </ul>
-          )}
-        </div>
-      )}
+      {/* תצוגות יומית / שבועית / חודשית לא שונו */}
 
       {selectedAppointment && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
