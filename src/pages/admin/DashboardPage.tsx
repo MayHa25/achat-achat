@@ -13,11 +13,35 @@ import useStore from '../../store/useStore';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
+interface Appointment {
+  id: string;
+  startTime: any;
+  price: number;
+  status: string;
+  clientName?: string;
+  serviceName?: string;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  phone: string;
+  lastVisit?: { seconds: number };
+  totalVisits?: number;
+}
+
 const DashboardPage: React.FC = () => {
   const { user } = useStore();
 
-  const [clients, setClients] = useState<any[]>([]);
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [stats, setStats] = useState({
+    totalClients: 0,
+    todayAppointments: 0,
+    totalAppointments: 0,
+    monthlyIncome: 0,
+    completionRate: 0,
+  });
 
   useEffect(() => {
     if (!user?.businessId) return;
@@ -26,14 +50,36 @@ const DashboardPage: React.FC = () => {
       try {
         const clientsQuery = query(collection(db, 'clients'), where('businessId', '==', user.businessId));
         const clientsSnap = await getDocs(clientsQuery);
-        const fetchedClients = clientsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchedClients = clientsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Client[];
 
         const appointmentsQuery = query(collection(db, 'appointments'), where('businessId', '==', user.businessId));
         const appointmentsSnap = await getDocs(appointmentsQuery);
-        const fetchedAppointments = appointmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchedAppointments = appointmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Appointment[];
 
         setClients(fetchedClients);
         setAppointments(fetchedAppointments);
+
+        const currentMonthIncome = fetchedAppointments
+          .filter(app => {
+            const appDate = (app.startTime as any).toDate();
+            const now = new Date();
+            return appDate.getMonth() === now.getMonth() && appDate.getFullYear() === now.getFullYear();
+          })
+          .reduce((sum, app) => sum + (app.price || 0), 0);
+
+        const total = fetchedAppointments.length;
+        const confirmed = fetchedAppointments.filter(app => app.status === 'confirmed').length;
+        const rate = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+
+        setStats({
+          totalClients: fetchedClients.length,
+          todayAppointments: fetchedAppointments.filter(app =>
+            (app.startTime as any).toDate().toDateString() === new Date().toDateString()
+          ).length,
+          totalAppointments: total,
+          monthlyIncome: currentMonthIncome,
+          completionRate: rate,
+        });
       } catch (error) {
         console.error('שגיאה בטעינת דאשבורד:', error);
       }
@@ -42,19 +88,9 @@ const DashboardPage: React.FC = () => {
     fetchData();
   }, [user?.businessId]);
 
-  const stats = {
-    totalClients: clients.length,
-    todayAppointments: appointments.filter(app =>
-      new Date(app.date).toDateString() === new Date().toDateString()
-    ).length,
-    totalAppointments: appointments.length,
-    monthlyIncome: 8750,
-    completionRate: 92,
-  };
-
   const upcomingAppointments = appointments
-    .filter(app => new Date(app.date) >= new Date())
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .filter(app => (app.startTime as any).toDate() >= new Date())
+    .sort((a, b) => (a.startTime as any).toDate().getTime() - (b.startTime as any).toDate().getTime())
     .slice(0, 3);
 
   const recentClients = clients
@@ -122,7 +158,7 @@ const DashboardPage: React.FC = () => {
                         <p className="text-sm text-gray-600">{app.serviceName}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{format(new Date(app.date), 'HH:mm')}</p>
+                        <p className="font-medium">{format((app.startTime as any).toDate(), 'HH:mm')}</p>
                         <div className="flex items-center mt-1">
                           {app.status === 'confirmed' ? (
                             <CheckCircle className="w-4 h-4 text-success-500 mr-1" />
