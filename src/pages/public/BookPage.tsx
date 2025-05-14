@@ -134,7 +134,8 @@ const BookPage: React.FC = () => {
       await updateDoc(doc(db, 'clients', clientDoc.id), {
         visitCount: updatedVisitCount,
         totalAmount: updatedTotalAmount,
-        status: clientStatus
+        status: clientStatus,
+        lastVisit: Timestamp.fromDate(startTime) // ✅ נוסף
       });
     } else {
       await addDoc(collection(db, 'clients'), {
@@ -143,7 +144,8 @@ const BookPage: React.FC = () => {
         phone: clientPhone,
         visitCount: updatedVisitCount,
         totalAmount: updatedTotalAmount,
-        status: clientStatus
+        status: clientStatus,
+        lastVisit: Timestamp.fromDate(startTime) // ✅ נוסף
       });
     }
 

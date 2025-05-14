@@ -27,7 +27,7 @@ interface Client {
   name: string;
   phone: string;
   lastVisit?: { seconds: number };
-  totalVisits?: number;
+  visitCount?: number; // ← עודכן מ-totalVisits ל-visitCount
 }
 
 const DashboardPage: React.FC = () => {
@@ -193,7 +193,7 @@ const DashboardPage: React.FC = () => {
                     <p className="text-sm text-gray-600">{client.phone}</p>
                     <div className="flex justify-between text-xs text-gray-500 mt-2">
                       <span>ביקור אחרון: {client.lastVisit?.seconds ? format(new Date(client.lastVisit.seconds * 1000), 'd בMMM', { locale: he }) : 'לא ידוע'}</span>
-                      <span>{client.totalVisits || 0} ביקורים</span>
+                      <span>{client.visitCount || 0} ביקורים</span>
                     </div>
                   </div>
                 ))}

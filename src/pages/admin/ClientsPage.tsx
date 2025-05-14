@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
+import { format } from 'date-fns';
+import { he } from 'date-fns/locale';
 
 interface Client {
   id: string;
@@ -11,6 +13,7 @@ interface Client {
   visitCount: number;
   totalAmount: number;
   status?: string;
+  lastVisit?: { seconds: number };
 }
 
 const ClientsPage: React.FC = () => {
@@ -66,7 +69,18 @@ const ClientsPage: React.FC = () => {
                   <p className="font-medium text-lg">{client.name}</p>
                   <p className="text-sm text-gray-500">
                     ביקורים: {client.visitCount} | סה"כ תשלום: ₪{client.totalAmount}
+                    <br />
+                    ביקור אחרון:{' '}
+                    {client.lastVisit?.seconds
+                      ? format(new Date(client.lastVisit.seconds * 1000), 'd בMMM yyyy', { locale: he })
+                      : 'לא ידוע'}
                   </p>
+                  {client.phone && (
+                    <p className="text-sm text-gray-400">טלפון: {client.phone}</p>
+                  )}
+                  {client.email && (
+                    <p className="text-sm text-gray-400">אימייל: {client.email}</p>
+                  )}
                 </div>
                 <span
                   className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusStyle(
