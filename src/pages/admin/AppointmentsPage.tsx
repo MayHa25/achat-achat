@@ -70,7 +70,6 @@ const AppointmentsPage: React.FC = () => {
 
     fetchAppointmentsAndServices();
   }, [user?.businessId]);
-
   const cancelAppointment = async (appointmentId: string) => {
     try {
       const appointment = appointments.find(app => app.id === appointmentId);
@@ -84,6 +83,7 @@ const AppointmentsPage: React.FC = () => {
       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
       setSelectedAppointment(null);
 
+      // שליחת SMS
       await fetch('https://us-central1-achat-achat.cloudfunctions.net/sendSms', {
         method: 'POST',
         headers: {
@@ -111,6 +111,7 @@ const AppointmentsPage: React.FC = () => {
       setCurrentDate(prev => direction === 'next' ? addMonths(prev, 1) : subMonths(prev, 1));
     }
   };
+
   return (
     <div className="p-6 overflow-x-auto">
       <div className="flex justify-between items-center mb-4">
@@ -132,7 +133,6 @@ const AppointmentsPage: React.FC = () => {
             const dayAppointments = appointments.filter(app =>
               isSameDay((app.startTime as Timestamp).toDate(), day)
             );
-
             return (
               <div key={i} className="border rounded-lg p-3 bg-white shadow-sm">
                 <div className="font-bold mb-1 text-sm">
