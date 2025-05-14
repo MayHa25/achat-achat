@@ -177,7 +177,7 @@ const ServicesPage: React.FC = () => {
                       onChange={(e) => setEditValues({ ...editValues, notes: e.target.value })}
                       className="border px-2 py-1 rounded"
                     />
-                    <div className="flex space-x-2">
+                    <div className="flex flex-row-reverse gap-3">
                       <button onClick={handleSaveEdit} className="text-green-600 hover:text-green-800">שמור</button>
                       <button onClick={handleCancelEdit} className="text-gray-500 hover:text-gray-700">ביטול</button>
                     </div>
@@ -191,7 +191,7 @@ const ServicesPage: React.FC = () => {
                         {service.notes && ` | הערות: ${service.notes}`}
                       </p>
                     </div>
-                    <div className="flex space-x-4">
+                    <div className="flex flex-row-reverse gap-4">
                       <button
                         onClick={() => handleEdit(service)}
                         className="text-blue-600 hover:text-blue-800"
