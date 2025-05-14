@@ -51,7 +51,7 @@ async function addToGoogleCalendar(appointment) {
 
 // === שליחת SMS מתוך Firebase Functions - onCall ===
 exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
-  const { phone, message, businessId, clientName, serviceName, startTime } = data;
+  const { phone, message, businessId, clientName, serviceName } = data;
   const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
 
   try {
@@ -74,32 +74,42 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
         ? owner.phone
         : `+972${owner.phone.replace(/^0/, "")}`;
 
-      const rawDate = typeof startTime === "object" && startTime.seconds
-        ? new Date(startTime.seconds * 1000)
-        : new Date(startTime);
+      // שליפת התור האחרון של הלקוחה
+      const appointmentsSnap = await admin.firestore()
+        .collection("appointments")
+        .where("clientPhone", "==", phone)
+        .where("businessId", "==", businessId)
+        .orderBy("created", "desc")
+        .limit(1)
+        .get();
 
-      const day = rawDate.toLocaleDateString("he-IL", {
-        weekday: "long",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
+      if (!appointmentsSnap.empty) {
+        const appointment = appointmentsSnap.docs[0].data();
+        const rawDate = appointment.startTime.toDate();
 
-      const time = rawDate.toLocaleTimeString("he-IL", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+        const day = rawDate.toLocaleDateString("he-IL", {
+          weekday: "long",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
 
-      const ownerMessage = `📅 תור חדש נקבע:
+        const time = rawDate.toLocaleTimeString("he-IL", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        const ownerMessage = `📅 תור חדש נקבע:
 לקוחה: ${clientName}
 שירות: ${serviceName}
 תאריך: ${day} בשעה ${time}`;
 
-      await client.messages.create({
-        body: ownerMessage,
-        from: fromPhone,
-        to: formattedOwnerPhone,
-      });
+        await client.messages.create({
+          body: ownerMessage,
+          from: fromPhone,
+          to: formattedOwnerPhone,
+        });
+      }
     }
 
     return { success: true };
