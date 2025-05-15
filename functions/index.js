@@ -82,8 +82,8 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
 
       // 3. הרכבת הודעה לבעלת העסק
       const rawDate = new Date(startTime);
-      const day = rawDate.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-      const time = rawDate.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
+      const day = rawDate.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jerusalem' });
+      const time = rawDate.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
 
       const ownerMessage = `📅 תור חדש נקבע:\n` +
         `לקוחה: ${clientName}\n` +
@@ -162,8 +162,9 @@ smsApp.post("/", async (req, res) => {
             ? owner.phone
             : `+972${owner.phone.replace(/^0/, "")}`;
 
-          const day = startTime.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit' });
-          const time = startTime.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
+          // הוספת timeZone להצגה נכונה
+          const day = startTime.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'Asia/Jerusalem' });
+          const time = startTime.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
 
           const ownerMessage = `שלום, הלקוחה ${data.clientName} ביטלה את התור שלה ליום ${day} בשעה ${time}.`;
           await client.messages.create({ body: ownerMessage, from: fromPhone, to: formattedOwner });
@@ -206,10 +207,10 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
         : `+972${ownerPhoneRaw.replace(/^0/, "")}`
       : null;
 
-    // עיצוב תאריך ושעה לפרטי התור
+    // עיצוב תאריך ושעה לפרטי התור עם timeZone
     const dateObj = startTime.toDate();
-    const day = dateObj.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-    const time = dateObj.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
+    const day = dateObj.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jerusalem' });
+    const time = dateObj.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
 
     // 1. SMS ללקוחה
     const clientMsg = `היי ${clientName}, התור שלך נקבע ליום ${day} בשעה ${time}.`;
