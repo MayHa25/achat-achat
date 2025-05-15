@@ -18,7 +18,8 @@ import {
   setHours,
   setMinutes,
   format,
-  addWeeks
+  addWeeks,
+  startOfDay
 } from 'date-fns';
 
 // הגדרת טיפוסים לשירות ולחריץ הזמן
@@ -45,13 +46,22 @@ const BookPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [weekOffset, setWeekOffset] = useState<number>(0);
 
+  // התחלת היום בתאריך ושעה 00:00
+  const today = startOfDay(new Date());
+
   useEffect(() => {
     if (!businessId) return;
 
     const fetchData = async () => {
       try {
-        const servicesQuery = query(collection(db, 'services'), where('businessId', '==', businessId));
-        const appointmentsQuery = query(collection(db, 'appointments'), where('businessId', '==', businessId));
+        const servicesQuery = query(
+          collection(db, 'services'),
+          where('businessId', '==', businessId)
+        );
+        const appointmentsQuery = query(
+          collection(db, 'appointments'),
+          where('businessId', '==', businessId)
+        );
         const [servicesSnap, appointmentsSnap, availabilityDocSnap] = await Promise.all([
           getDocs(servicesQuery),
           getDocs(appointmentsQuery),
@@ -77,7 +87,9 @@ const BookPage: React.FC = () => {
   }, [businessId]);
 
   const getAvailableHoursForDay = (dayIndex: number): string[] => {
-    const dayAvailability = availabilities.find(a => a.dayOfWeek === dayIndex && a.available);
+    const dayAvailability = availabilities.find(
+      a => a.dayOfWeek === dayIndex && a.available
+    );
     if (!dayAvailability) return [];
 
     const startHour = parseInt(dayAvailability.startTime.split(':')[0]);
@@ -103,7 +115,10 @@ const BookPage: React.FC = () => {
     if (!selectedSlot || !selectedServiceId || !businessId || !clientName || !clientPhone) return;
 
     const selectedService = services.find(s => s.id === selectedServiceId)!;
-    const selectedDate = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), selectedSlot.day + weekOffset * 7);
+    const selectedDate = addDays(
+      startOfWeek(new Date(), { weekStartsOn: 0 }),
+      selectedSlot.day + weekOffset * 7
+    );
     const [hour, minute] = selectedSlot.time.split(':').map(Number);
     const startTime = setMinutes(setHours(selectedDate, hour), minute);
     const price = selectedService.price;
@@ -168,7 +183,9 @@ const BookPage: React.FC = () => {
   };
 
   if (!businessId) {
-    return <p className="text-center mt-10 text-red-600 font-bold">שגיאה: לא נמצא מזהה עסק בכתובת.</p>;
+    return <p className="text-center mt-10 text-red-600 font-bold">
+      שגיאה: לא נמצא מזהה עסק בכתובת.
+    </p>;
   }
 
   if (loading) {
@@ -176,16 +193,28 @@ const BookPage: React.FC = () => {
   }
 
   const weekDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-  const currentWeekStart = addWeeks(startOfWeek(new Date(), { weekStartsOn: 0 }), weekOffset);
+  const currentWeekStart = addWeeks(
+    startOfWeek(new Date(), { weekStartsOn: 0 }),
+    weekOffset
+  );
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6">קביעת תור</h1>
 
       <div className="flex justify-between mb-4">
-        <button onClick={() => setWeekOffset(weekOffset - 1)} className="px-3 py-1 bg-gray-200 rounded">← שבוע קודם</button>
-        <button onClick={() => setWeekOffset(0)} className="px-3 py-1 bg-blue-100 rounded">שבוע נוכחי</button>
-        <button onClick={() => setWeekOffset(weekOffset + 1)} className="px-3 py-1 bg-gray-200 rounded">שבוע הבא →</button>
+        <button
+          onClick={() => setWeekOffset(weekOffset - 1)}
+          className="px-3 py-1 bg-gray-200 rounded"
+        >← שבוע קודם</button>
+        <button
+          onClick={() => setWeekOffset(0)}
+          className="px-3 py-1 bg-blue-100 rounded"
+        >שבוע נוכחי</button>
+        <button
+          onClick={() => setWeekOffset(weekOffset + 1)}
+          className="px-3 py-1 bg-gray-200 rounded"
+        >שבוע הבא →</button>
       </div>
 
       <div className="mb-6">
@@ -194,7 +223,9 @@ const BookPage: React.FC = () => {
           {services.map(service => (
             <div
               key={service.id}
-              className={`border p-4 rounded cursor-pointer ${selectedServiceId === service.id ? 'border-primary-600 bg-primary-50' : 'border-gray-200'}`}
+              className={`border p-4 rounded cursor-pointer ${
+                selectedServiceId === service.id ? 'border-primary-600 bg-primary-50' : 'border-gray-200'}
+              `}
               onClick={() => setSelectedServiceId(service.id)}
             >
               <p className="font-semibold">{service.name}</p>
@@ -215,7 +246,10 @@ const BookPage: React.FC = () => {
                   {weekDays.map((day, i) => {
                     const date = addDays(currentWeekStart, i);
                     return (
-                      <th key={i} className="border px-4 py-2 text-sm font-medium">
+                      <th
+                        key={i}
+                        className="border px-4 py-2 text-sm font-medium"
+                      >
                         {day} <br />{format(date, 'd/M')}
                       </th>
                     );
@@ -229,20 +263,35 @@ const BookPage: React.FC = () => {
                       const hours = getAvailableHoursForDay(dayIndex);
                       const time = hours[row];
                       const date = addDays(currentWeekStart, dayIndex);
+                      const isPastDay = date < today;
 
-                      if (!time) return <td key={dayIndex} className="border px-4 py-2 text-center text-gray-300">—</td>;
+                      if (!time) {
+                        return (
+                          <td
+                            key={dayIndex}
+                            className="border px-4 py-2 text-center text-gray-300"
+                          >—</td>
+                        );
+                      }
 
                       const taken = isTimeTaken(date, time);
+                      const disabledCell = taken || isPastDay;
                       const isSelected = selectedSlot?.day === dayIndex && selectedSlot.time === time;
 
                       return (
                         <td key={dayIndex} className="border px-1 py-2 text-center">
                           <button
-                            disabled={taken}
+                            disabled={disabledCell}
                             onClick={() => setSelectedSlot({ day: dayIndex, time })}
-                            className={`w-full rounded px-2 py-1 text-sm ${taken ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : isSelected ? 'bg-primary-600 text-white' : 'bg-white hover:bg-primary-100'}`}
+                            className={`w-full rounded px-2 py-1 text-sm ${
+                              disabledCell
+                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                : isSelected
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-white hover:bg-primary-100'
+                            }`}
                           >
-                            {taken ? 'תפוס' : time}
+                            {time}
                           </button>
                         </td>
                       );
