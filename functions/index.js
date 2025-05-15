@@ -1,19 +1,19 @@
 require("dotenv").config();
 
 const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const twilio = require("twilio");
-const express = require("express");
-const bodyParser = require("body-parser");
-const { google } = require("googleapis");
-const path = require("path");
+const admin     = require("firebase-admin");
+const twilio    = require("twilio");
+const express   = require("express");
+const bodyParser= require("body-parser");
+const { google }= require("googleapis");
+const path      = require("path");
 
 admin.initializeApp();
 
 const accountSid = functions.config()?.twilio?.sid || process.env.TWILIO_SID;
-const authToken = functions.config()?.twilio?.token || process.env.TWILIO_AUTH_TOKEN;
-const fromPhone = functions.config()?.twilio?.phone || process.env.TWILIO_PHONE;
-const client = twilio(accountSid, authToken);
+const authToken  = functions.config()?.twilio?.token || process.env.TWILIO_AUTH_TOKEN;
+const fromPhone  = functions.config()?.twilio?.phone || process.env.TWILIO_PHONE;
+const client     = twilio(accountSid, authToken);
 
 const calendar = google.calendar("v3");
 
@@ -49,18 +49,20 @@ async function addToGoogleCalendar(appointment) {
   });
 }
 
-// === שליחת SMS מתוך Firebase Functions - onCall ===
+// === ה־https Callable הקיים ===
 exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   const { phone, message, businessId, clientName, serviceName } = data;
   const formattedPhone = phone.startsWith("+") ? phone : `+972${phone.replace(/^0/, "")}`;
 
   try {
+    // שליחת SMS ללקוחה
     await client.messages.create({
       body: message,
       from: fromPhone,
       to: formattedPhone,
     });
 
+    // שליפת בעלת העסק
     const ownerSnap = await admin.firestore()
       .collection("users")
       .where("businessId", "==", businessId)
@@ -86,23 +88,21 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
       if (!appointmentsSnap.empty) {
         const appointment = appointmentsSnap.docs[0].data();
         const rawDate = appointment.startTime.toDate();
-
         const day = rawDate.toLocaleDateString("he-IL", {
           weekday: "long",
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
         });
-
         const time = rawDate.toLocaleTimeString("he-IL", {
           hour: "2-digit",
           minute: "2-digit",
         });
 
-        const ownerMessage = `📅 תור חדש נקבע:
-לקוחה: ${clientName}
-שירות: ${serviceName}
-תאריך: ${day} בשעה ${time}`;
+        const ownerMessage = `📅 תור חדש נקבע:\n` +
+          `לקוחה: ${clientName}\n` +
+          `שירות: ${serviceName}\n` +
+          `תאריך: ${day} בשעה ${time}`;
 
         await client.messages.create({
           body: ownerMessage,
@@ -119,14 +119,10 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   }
 });
 
-// === שליחת SMS פשוטה דרך fetch מה-Frontend ===
+// === ה־https endpoint הקיים ===
 exports.sendSms = functions.https.onRequest(async (req, res) => {
   const { to, message } = req.body;
   const formattedPhone = to.startsWith("+") ? to : `+972${to.replace(/^0/, "")}`;
-
-  console.log("📨 התחלת שליחת SMS...");
-  console.log("אל:", formattedPhone);
-  console.log("תוכן:", message);
 
   try {
     const result = await client.messages.create({
@@ -134,8 +130,6 @@ exports.sendSms = functions.https.onRequest(async (req, res) => {
       from: fromPhone,
       to: formattedPhone,
     });
-
-    console.log("✅ נשלח בהצלחה:", result.sid);
     res.status(200).send({ success: true });
   } catch (error) {
     console.error("❌ שגיאה בשליחת SMS:", error.message);
@@ -143,7 +137,7 @@ exports.sendSms = functions.https.onRequest(async (req, res) => {
   }
 });
 
-// === ניהול הודעות נכנסות מהלקוחה ===
+// === טיפול בהודעות נכנסות ===
 const smsApp = express();
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 
@@ -162,12 +156,12 @@ smsApp.post("/", async (req, res) => {
       .get();
 
     let cancelled = false;
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
       const startTime = data.startTime.toDate();
 
       if ((startTime - now) >= 24 * 60 * 60 * 1000) {
-        await doc.ref.update({ status: "cancelled_by_client" });
+        await docSnap.ref.update({ status: "cancelled_by_client" });
 
         const ownerDoc = await admin.firestore()
           .collection("users")
@@ -177,16 +171,14 @@ smsApp.post("/", async (req, res) => {
 
         if (!ownerDoc.empty) {
           const owner = ownerDoc.docs[0].data();
-          const formattedOwner = owner.phone?.startsWith("+")
+          const formattedOwner = owner.phone.startsWith("+")
             ? owner.phone
-            : `+972${owner.phone?.replace(/^0/, "")}`;
+            : `+972${owner.phone.replace(/^0/, "")}`;
 
           const day = startTime.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit' });
           const time = startTime.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
 
-          const ownerMessage = `שלום, הלקוחה ${data.clientName} ביטלה את התור שלה ליום ${day} בשעה ${time}.
-אין צורך באישור נוסף – התור הוסר מהמערכת.`;
-
+          const ownerMessage = `שלום, הלקוחה ${data.clientName} ביטלה את התור שלה ליום ${day} בשעה ${time}.`;
           await client.messages.create({
             body: ownerMessage,
             from: fromPhone,
@@ -216,5 +208,50 @@ smsApp.post("/", async (req, res) => {
 
   res.send("OK");
 });
-
 exports.onIncomingSMS = functions.https.onRequest(smsApp);
+
+// === הפונקציה החדשה: Firestore trigger על יצירת תור ===
+exports.sendAppointmentSmsOnCreate = functions.firestore
+  .document('appointments/{apptId}')
+  .onCreate(async (snap, ctx) => {
+    const appt = snap.data();
+    const { businessId, clientPhone, clientName, startTime } = appt;
+
+    // חיפוש בעלת העסק
+    const ownerSnap = await admin.firestore()
+      .collection("users")
+      .where("businessId", "==", businessId)
+      .where("role", "==", "admin")
+      .limit(1)
+      .get();
+
+    const ownerPhoneRaw = ownerSnap.empty ? null : ownerSnap.docs[0].data().phone;
+    const formattedOwnerPhone = ownerPhoneRaw
+      ? ownerPhoneRaw.startsWith("+")
+        ? ownerPhoneRaw
+        : `+972${ownerPhoneRaw.replace(/^0/, "")}`
+      : null;
+
+    // עיצוב תאריך ושעה
+    const dateObj = startTime.toDate();
+    const day  = dateObj.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const time = dateObj.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
+
+    // הודעה ללקוחה
+    const clientMsg = `היי ${clientName}, התור שלך נקבע ליום ${day} בשעה ${time}.`;
+    await client.messages.create({
+      body: clientMsg,
+      from: fromPhone,
+      to: clientPhone.startsWith("+") ? clientPhone : `+972${clientPhone.replace(/^0/, "")}`
+    });
+
+    // הודעה לבעלת העסק
+    if (formattedOwnerPhone) {
+      const ownerMsg = `📌 תור חדש: ${clientName} ליום ${day} בשעה ${time}.`;
+      await client.messages.create({
+        body: ownerMsg,
+        from: fromPhone,
+        to: formattedOwnerPhone
+      });
+    }
+  });
