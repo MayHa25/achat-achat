@@ -21,19 +21,29 @@ import {
   addWeeks
 } from 'date-fns';
 
+// הגדרת טיפוסים לשירות ולחריץ הזמן
+interface Service {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
+type Slot = { day: number; time: string };
+
 const BookPage: React.FC = () => {
   const { businessId } = useParams<{ businessId: string }>();
   const navigate = useNavigate();
 
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [availabilities, setAvailabilities] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
-  const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [selectedSlot, setSelectedSlot] = useState<{ day: number; time: string } | null>(null);
-  const [clientName, setClientName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [clientName, setClientName] = useState<string>('');
+  const [clientPhone, setClientPhone] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [weekOffset, setWeekOffset] = useState<number>(0);
 
   useEffect(() => {
     if (!businessId) return;
@@ -48,8 +58,12 @@ const BookPage: React.FC = () => {
           getDoc(doc(db, 'availability', businessId))
         ]);
 
-        setServices(servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setAppointments(appointmentsSnap.docs.map(doc => doc.data()));
+        const mappedServices: Service[] = servicesSnap.docs
+          .map(docSnap => ({ id: docSnap.id, ...(docSnap.data() as Omit<Service, 'id'>) }))
+          .filter(s => s.name !== 'שלום בביט');
+
+        setServices(mappedServices);
+        setAppointments(appointmentsSnap.docs.map(d => d.data()));
         const availabilityData = availabilityDocSnap.data();
         setAvailabilities(availabilityData?.businessHours || []);
       } catch (err) {
@@ -62,7 +76,7 @@ const BookPage: React.FC = () => {
     fetchData();
   }, [businessId]);
 
-  const getAvailableHoursForDay = (dayIndex: number) => {
+  const getAvailableHoursForDay = (dayIndex: number): string[] => {
     const dayAvailability = availabilities.find(a => a.dayOfWeek === dayIndex && a.available);
     if (!dayAvailability) return [];
 
@@ -75,7 +89,7 @@ const BookPage: React.FC = () => {
     return hours;
   };
 
-  const isTimeTaken = (date: Date, time: string) => {
+  const isTimeTaken = (date: Date, time: string): boolean => {
     const timeDate = new Date(date);
     const [h, m] = time.split(':');
     timeDate.setHours(parseInt(h), parseInt(m), 0, 0);
@@ -88,11 +102,11 @@ const BookPage: React.FC = () => {
   const handleBookAppointment = async () => {
     if (!selectedSlot || !selectedServiceId || !businessId || !clientName || !clientPhone) return;
 
-    const selectedService = services.find(s => s.id === selectedServiceId);
+    const selectedService = services.find(s => s.id === selectedServiceId)!;
     const selectedDate = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), selectedSlot.day + weekOffset * 7);
     const [hour, minute] = selectedSlot.time.split(':').map(Number);
     const startTime = setMinutes(setHours(selectedDate, hour), minute);
-    const price = selectedService?.price || 0;
+    const price = selectedService.price;
 
     const newAppointment = {
       businessId,
@@ -100,7 +114,7 @@ const BookPage: React.FC = () => {
       clientName,
       clientPhone,
       startTime: Timestamp.fromDate(startTime),
-      duration: selectedService?.duration || 30,
+      duration: selectedService.duration,
       price,
       status: 'pending',
       created: Timestamp.now()
@@ -124,18 +138,13 @@ const BookPage: React.FC = () => {
       const data = clientDoc.data();
       updatedVisitCount = (data.visitCount || 0) + 1;
       updatedTotalAmount = (data.totalAmount || 0) + price;
-
-      if (updatedVisitCount >= 11) {
-        clientStatus = 'VIP';
-      } else if (updatedVisitCount >= 5) {
-        clientStatus = 'קבוע';
-      }
+      clientStatus = updatedVisitCount >= 11 ? 'VIP' : updatedVisitCount >= 5 ? 'קבוע' : 'מזדמן';
 
       await updateDoc(doc(db, 'clients', clientDoc.id), {
         visitCount: updatedVisitCount,
         totalAmount: updatedTotalAmount,
         status: clientStatus,
-        lastVisit: Timestamp.fromDate(startTime) // ✅ נוסף
+        lastVisit: Timestamp.fromDate(startTime)
       });
     } else {
       await addDoc(collection(db, 'clients'), {
@@ -145,7 +154,7 @@ const BookPage: React.FC = () => {
         visitCount: updatedVisitCount,
         totalAmount: updatedTotalAmount,
         status: clientStatus,
-        lastVisit: Timestamp.fromDate(startTime) // ✅ נוסף
+        lastVisit: Timestamp.fromDate(startTime)
       });
     }
 
@@ -185,9 +194,7 @@ const BookPage: React.FC = () => {
           {services.map(service => (
             <div
               key={service.id}
-              className={`border p-4 rounded cursor-pointer ${
-                selectedServiceId === service.id ? 'border-primary-600 bg-primary-50' : 'border-gray-200'
-              }`}
+              className={`border p-4 rounded cursor-pointer ${selectedServiceId === service.id ? 'border-primary-600 bg-primary-50' : 'border-gray-200'}`}
               onClick={() => setSelectedServiceId(service.id)}
             >
               <p className="font-semibold">{service.name}</p>
@@ -209,8 +216,7 @@ const BookPage: React.FC = () => {
                     const date = addDays(currentWeekStart, i);
                     return (
                       <th key={i} className="border px-4 py-2 text-sm font-medium">
-                        {day} <br />
-                        {format(date, 'd/M')}
+                        {day} <br />{format(date, 'd/M')}
                       </th>
                     );
                   })}
@@ -224,9 +230,7 @@ const BookPage: React.FC = () => {
                       const time = hours[row];
                       const date = addDays(currentWeekStart, dayIndex);
 
-                      if (!time) {
-                        return <td key={dayIndex} className="border px-4 py-2 text-center text-gray-300">—</td>;
-                      }
+                      if (!time) return <td key={dayIndex} className="border px-4 py-2 text-center text-gray-300">—</td>;
 
                       const taken = isTimeTaken(date, time);
                       const isSelected = selectedSlot?.day === dayIndex && selectedSlot.time === time;
@@ -236,13 +240,7 @@ const BookPage: React.FC = () => {
                           <button
                             disabled={taken}
                             onClick={() => setSelectedSlot({ day: dayIndex, time })}
-                            className={`w-full rounded px-2 py-1 text-sm ${
-                              taken
-                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                : isSelected
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-white hover:bg-primary-100'
-                            }`}
+                            className={`w-full rounded px-2 py-1 text-sm ${taken ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : isSelected ? 'bg-primary-600 text-white' : 'bg-white hover:bg-primary-100'}`}
                           >
                             {taken ? 'תפוס' : time}
                           </button>
@@ -261,14 +259,14 @@ const BookPage: React.FC = () => {
               type="text"
               placeholder="שם מלא"
               value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
+              onChange={e => setClientName(e.target.value)}
               className="w-full border px-4 py-2 rounded mb-3"
             />
             <input
               type="tel"
               placeholder="מספר טלפון"
               value={clientPhone}
-              onChange={(e) => setClientPhone(e.target.value)}
+              onChange={e => setClientPhone(e.target.value)}
               className="w-full border px-4 py-2 rounded"
             />
           </div>
