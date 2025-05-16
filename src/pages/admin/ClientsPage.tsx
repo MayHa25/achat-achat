@@ -27,7 +27,7 @@ const ClientsPage: React.FC = () => {
     })();
   }, [user?.businessId]);
 
-  // Group clients by status
+  // Group by status
   const occasional = clients.filter(c => (c.status || 'מזדמן') === 'מזדמן');
   const regular    = clients.filter(c => c.status === 'קבוע');
   const vip        = clients.filter(c => c.status === 'VIP');
@@ -46,30 +46,54 @@ const ClientsPage: React.FC = () => {
           </thead>
           <tbody>
             <tr>
-              <td className="border px-4 py-2 align-top">
-                <ul className="list-disc pl-5 space-y-1">
+              {/* מזדמן */}
+              <td className="border px-4 py-6 align-top">
+                <ul className="flex flex-col items-center space-y-2">
                   {occasional.map(c => (
-                    <li key={c.id} className="text-gray-700">{c.name}</li>
+                    <li
+                      key={c.id}
+                      className="text-primary-700 font-medium text-lg"
+                    >
+                      {c.name}
+                    </li>
                   ))}
-                  {occasional.length === 0 && <li className="text-gray-400">אין לקוחות</li>}
+                  {occasional.length === 0 && (
+                    <li className="text-gray-400 italic">אין לקוחות</li>
+                  )}
                 </ul>
               </td>
 
-              <td className="border px-4 py-2 align-top">
-                <ul className="list-disc pl-5 space-y-1">
+              {/* קבוע */}
+              <td className="border px-4 py-6 align-top">
+                <ul className="flex flex-col items-center space-y-2">
                   {regular.map(c => (
-                    <li key={c.id} className="text-gray-700">{c.name}</li>
+                    <li
+                      key={c.id}
+                      className="text-green-600 font-medium text-lg"
+                    >
+                      {c.name}
+                    </li>
                   ))}
-                  {regular.length === 0 && <li className="text-gray-400">אין לקוחות</li>}
+                  {regular.length === 0 && (
+                    <li className="text-gray-400 italic">אין לקוחות</li>
+                  )}
                 </ul>
               </td>
 
-              <td className="border px-4 py-2 align-top">
-                <ul className="list-disc pl-5 space-y-1">
+              {/* VIP */}
+              <td className="border px-4 py-6 align-top">
+                <ul className="flex flex-col items-center space-y-2">
                   {vip.map(c => (
-                    <li key={c.id} className="text-gray-700">{c.name}</li>
+                    <li
+                      key={c.id}
+                      className="text-yellow-600 font-medium text-lg"
+                    >
+                      {c.name}
+                    </li>
                   ))}
-                  {vip.length === 0 && <li className="text-gray-400">אין לקוחות</li>}
+                  {vip.length === 0 && (
+                    <li className="text-gray-400 italic">אין לקוחות</li>
+                  )}
                 </ul>
               </td>
             </tr>
