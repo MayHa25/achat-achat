@@ -213,11 +213,7 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
 
     // 1. SMS ללקוחה
     const clientMsg = `היי ${clientName}, התור שלך נקבע ליום ${day} בשעה ${time}.`;
-    await client.messages.create({
-      body: clientMsg,
-      from: fromPhone,
-      to: clientPhone.startsWith("+") ? clientPhone : `+972${clientPhone.replace(/^0/, "")}`
-    });
+    await client.messages.create({ body: clientMsg, from: fromPhone, to: clientPhone.startsWith("+") ? clientPhone : `+972${clientPhone.replace(/^0/, "")}` });
 
     // 2. SMS לבעלת העסק
     if (formattedOwnerPhone) {
@@ -231,17 +227,14 @@ exports.notifyClientOnCancel = functions.firestore
   .document('appointments/{apptId}')
   .onUpdate(async (change) => {
     const before = change.before.data();
-    const after = change.after.data();
-    // אם הסטטוס השתנה ל"cancelled_by_admin"
+    const after  = change.after.data();
+    // רק אם הסטטוס השתנה ל"cancelled_by_admin"
     if (before.status !== 'cancelled_by_admin' && after.status === 'cancelled_by_admin') {
-      const clientName = after.clientName;
-      const clientPhoneRaw = after.clientPhone;
-      const dateObj = after.startTime.toDate ? after.startTime.toDate() : new Date(after.startTime);
+      const { clientName, clientPhone, startTime } = after;
+      const dateObj = startTime.toDate ? startTime.toDate() : new Date(startTime);
       const day = dateObj.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'Asia/Jerusalem' });
       const time = dateObj.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
-      const formattedPhone = clientPhoneRaw.startsWith('+')
-        ? clientPhoneRaw
-        : `+972${clientPhoneRaw.replace(/^0/, '')}`;
+      const formattedPhone = clientPhone.startsWith('+') ? clientPhone : `+972${clientPhone.replace(/^0/, '')}`;
       const body = `שלום ${clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`;
       await client.messages.create({ body, from: fromPhone, to: formattedPhone });
     }
