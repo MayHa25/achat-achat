@@ -2,29 +2,25 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { CheckCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
+
+// טיפוסי ה-state שמועברים דרך הניווט
+interface ConfirmationState {
+  appointment: { businessId: string; startTime: any };
+  client: { name: string; phone: string };
+  service: { name: string };
+}
 
 const ConfirmationPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  // ביצוע cast מפורש ל-state ששלחנו
+  const { appointment, client, service } = (location.state as ConfirmationState) || {};
 
-  const { appointment, client, service } = location.state || {};
-
-  if (
-    appointment &&
-    appointment.startTime &&
-    typeof appointment.startTime === 'object' &&
-    appointment.startTime.seconds
-  ) {
-    appointment.startTime = new Date(appointment.startTime.seconds * 1000);
-  }
-
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
-
-  if (!appointment || !client || !service || !appointment.startTime) {
+  // בדיקת תקינות הנתונים
+  if (!appointment || !client || !service) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 text-center">
@@ -41,68 +37,38 @@ const ConfirmationPage: React.FC = () => {
     );
   }
 
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProcessing(true);
+  // המרת Firestore Timestamp לאובייקט Date, אם קיים
+  if (typeof appointment.startTime === 'object' && 'seconds' in appointment.startTime) {
+    appointment.startTime = new Date(appointment.startTime.seconds * 1000);
+  }
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleFinish = async () => {
+    setIsProcessing(true);
     try {
       const sendSMS = httpsCallable(functions, 'sendSmsOnBooking');
-      const businessId = appointment.businessId;
-
-      const message = `התור שלך בנושא ${service.name} נקבע ל־${format(
-        appointment.startTime,
-        'dd.MM.yyyy'
-      )}, בשעה ${format(appointment.startTime, 'HH:mm')}.
+      const message =
+        `התור שלך בנושא ${service.name} נקבע ל־${format(
+          appointment.startTime,
+          'dd.MM.yyyy'
+        )}, בשעה ${format(appointment.startTime, 'HH:mm')}.
 לביטול שלחי את הספרה 1 עד 24 שעות מראש.`;
 
       await sendSMS({
         phone: client.phone,
         message,
-        businessId,
+        businessId: appointment.businessId,
         clientName: client.name,
         serviceName: service.name,
         startTime: appointment.startTime,
       });
-
-      setPaymentCompleted(true);
     } catch (error) {
       console.error('שגיאה בשליחת SMS:', error);
     } finally {
-      setIsProcessing(false);
+      navigate('/');
     }
   };
-
-  if (!paymentCompleted) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-3xl mx-auto">
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div className="text-center mb-8">
-              <div className="inline-block p-3 bg-success-100 rounded-full mb-2">
-                <CheckCircle className="w-8 h-8 text-success-600" />
-              </div>
-              <h1 className="text-2xl font-bold">התור שלך נקבע בהצלחה</h1>
-              <p className="text-gray-600">
-                ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה{' '}
-                {format(appointment.startTime, 'HH:mm')}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">באפשרותך לשלם במועד אחר</p>
-            </div>
-
-            <form onSubmit={handlePayment}>
-              <button
-                type="submit"
-                disabled={isProcessing}
-                className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700"
-              >
-                {isProcessing ? 'מעבד...' : 'סיום'}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -110,22 +76,21 @@ const ConfirmationPage: React.FC = () => {
         <div className="inline-block p-3 bg-success-100 rounded-full mb-4">
           <CheckCircle className="w-12 h-12 text-success-600" />
         </div>
-        <h1 className="text-3xl font-bold mb-2">תודה {client.name}!</h1>
-        <p className="text-lg text-gray-600">
-          תורך נקבע ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה{' '}
-          {format(appointment.startTime, 'HH:mm')}.
-          <br />
+        <h1 className="text-3xl font-bold mb-2">תודה, {client.name}!</h1>
+        <p className="text-lg text-gray-600 mb-4">
+          התור שלך נקבע ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })}
+          {' '}בשעה {format(appointment.startTime, 'HH:mm')}.
+        </p>
+        <p className="text-sm text-gray-500 mb-6">
           שלחנו לך אישור בהודעת טקסט למספר {client.phone}.
         </p>
-
-        <div className="text-center mt-6">
-          <button
-            onClick={() => navigate('/')}
-            className="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-          >
-            <ArrowLeft className="w-5 h-5 ml-2" /> חזרה לדף הבית
-          </button>
-        </div>
+        <button
+          onClick={handleFinish}
+          disabled={isProcessing}
+          className="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+        >
+          {isProcessing ? 'מעבד...' : 'סיום'}
+        </button>
       </div>
     </div>
   );
