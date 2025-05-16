@@ -1,16 +1,27 @@
 // src/pages/Home.tsx
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 
 const CONTACT_FORM_FN_URL =
   'https://us-central1-achat-achat-app.cloudfunctions.net/sendContactForm';
 
-const Home: React.FC = () => {
-  const { t } = useTranslation();
+const testimonials = [
+  {
+    name: 'ענבר לוי',
+    feedback: 'המערכת שינתה לי את החיים! ניהול התורים הפך לפשוט ומהיר.',
+  },
+  {
+    name: 'דנה כהן',
+    feedback: 'חסכתי המון זמן בעזרת המערכת. ממליצה בחום!',
+  },
+  {
+    name: 'מיכאל ישראלי',
+    feedback: 'תמיכה מעולה וחווית משתמש מדהימה.',
+  },
+];
 
-  // state ל־Modal
+const Home: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     businessName: '',
@@ -30,7 +41,7 @@ const Home: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setForm(f => ({
+    setForm((f) => ({
       ...f,
       [name]: type === 'checkbox' ? checked : value,
     }));
@@ -49,13 +60,7 @@ const Home: React.FC = () => {
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       setFeedback('הפרטים נשלחו בהצלחה! נחזור אליך בקרוב.');
-      setForm({
-        businessName: '',
-        contactName: '',
-        phone: '',
-        email: '',
-        selfRegister: false,
-      });
+      setForm({ businessName: '', contactName: '', phone: '', email: '', selfRegister: false });
     } catch (err) {
       console.error(err);
       setFeedback('אירעה שגיאה בשליחה. נסה שוב.');
@@ -65,7 +70,8 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="bg-white">
+    <div className="bg-white flex flex-col min-h-screen">
+
       {/* Hero Section */}
       <section className="relative bg-gradient-to-r from-primary-500 to-primary-400 text-white py-20">
         <div
@@ -77,15 +83,14 @@ const Home: React.FC = () => {
               נהל את העסק שלך בקלות עם מערכת ניהול תורים חכמה
             </h1>
             <p className="text-xl mb-8 text-primary-100">
-              מערכת מתקדמת לניהול תורים, לקוחות ותשלומים לבעלי קליניקות
-              ועסקים בתחום הטיפולים
+              מערכת מתקדמת לניהול תורים, לקוחות ותשלומים לבעלי קליניקות ועסקים בתחום הטיפולים
             </p>
             <div className="flex flex-wrap gap-4">
               <Link
-                to="/book"
+                to="/info"
                 className="px-6 py-3 bg-secondary-100 text-primary-600 rounded-md font-medium hover:bg-secondary-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-100"
               >
-                {t('book_appointment')}
+                עוד פרטים
               </Link>
               <button
                 onClick={openModal}
@@ -98,11 +103,22 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* CTA Section – נשמר כמות שהוא */}
-      {/* אם תרצה להוסיף כאן קוד – נשמר במקור */}
-
-      {/* Testimonials Section – נשמר כמות שהוא */}
-      {/* אם תרצה להוסיף כאן קוד – נשמר במקור */}
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-16 bg-gray-100">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold mb-8 text-center">
+            מה הלקוחות שלנו אומרים
+          </h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            {testimonials.map((t, i) => (
+              <div key={i} className="bg-white p-6 rounded-lg shadow">
+                <p className="text-gray-800 mb-4">"{t.feedback}"</p>
+                <p className="font-bold text-primary-600">- {t.name}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Modal */}
       {showModal && (
@@ -166,9 +182,7 @@ const Home: React.FC = () => {
                   onChange={handleChange}
                   className="mr-2"
                 />
-                <label htmlFor="selfRegister">
-                  אני רוצה להירשם ולשלם בעצמי
-                </label>
+                <label htmlFor="selfRegister">אני רוצה להירשם ולשלם בעצמי</label>
               </div>
               <button
                 type="submit"
@@ -197,6 +211,38 @@ const Home: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white mt-auto">
+        <div className="container mx-auto px-4 py-8 grid md:grid-cols-3 gap-6">
+          <div>
+            <h3 className="font-bold text-lg mb-2">צור קשר</h3>
+            <p>טלפון: 05053393611</p>
+            <p>מייל: may.hakimi010@gmail.com</p>
+          </div>
+          <div>
+            <h3 className="font-bold text-lg mb-2">קישורים מהירים</h3>
+            <ul className="space-y-1">
+              <li><Link to="/" className="hover:underline">דף הבית</Link></li>
+              <li><Link to="/info" className="hover:underline">עוד פרטים</Link></li>
+              <li><button onClick={openModal} className="hover:underline">התנ</button></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-bold text-lg mb-2">אודות המערכת</h3>
+            <p>
+              מערכת ניהול תורים חכמה שמספקת פתרון מקיף לניהול לוחות זמנים, לקוחות ותשלומים בעסק שלך.
+            </p>
+            <ul className="list-disc list-inside mt-2">
+              <li>ממשק משתמש אינטואיטיבי ופשוט</li>
+              <li>התאמה אישית לצרכי העסק שלך</li>
+              <li>דוחות וניתוחים בזמן אמת</li>
+              <li>תמיכה ומענה מקצועי 24/7</li>
+            </ul>
+          </div>
+        </div>
+        <div className="text-center text-gray-500 mt-8">© 2025 מערכת ניהול תורים - כל הזכויות שמורות</div>
+      </footer>
     </div>
   );
 };
