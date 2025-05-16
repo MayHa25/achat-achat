@@ -20,7 +20,7 @@ import {
   getDocs,
   query,
   where,
-  deleteDoc,
+  updateDoc,
   doc,
   Timestamp,
 } from 'firebase/firestore';
@@ -54,7 +54,7 @@ const AppointmentsPage: React.FC = () => {
 
         const services: Record<string, string> = {};
         servicesSnap.docs.forEach(doc => {
-          services[doc.id] = doc.data().name;
+          services[doc.id] = (doc.data() as any).name;
         });
         setServicesMap(services);
 
@@ -70,30 +70,17 @@ const AppointmentsPage: React.FC = () => {
 
     fetchAppointmentsAndServices();
   }, [user?.businessId]);
+
   const cancelAppointment = async (appointmentId: string) => {
     try {
-      const appointment = appointments.find(app => app.id === appointmentId);
-      if (!appointment) return;
+      // עדכון סטטוס התור ל"cancelled_by_admin" במקום מחיקה
+      await updateDoc(doc(db, 'appointments', appointmentId), {
+        status: 'cancelled_by_admin',
+      });
 
-      const appDate = (appointment.startTime as Timestamp).toDate();
-      const formattedDate = format(appDate, 'd בMMMM yyyy', { locale: he });
-      const formattedTime = format(appDate, 'HH:mm');
-
-      await deleteDoc(doc(db, 'appointments', appointmentId));
+      // הסרת התור מ-state כדי לעדכן את הממשק
       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
       setSelectedAppointment(null);
-
-      // שליחת SMS
-      await fetch('https://us-central1-achat-achat.cloudfunctions.net/sendSms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: appointment.clientPhone,
-          message: `שלום ${appointment.clientName}, התור שלך בתאריך ${formattedDate} בשעה ${formattedTime} בוטל. לתיאום חדש פני אלינו.`,
-        }),
-      });
     } catch (error) {
       console.error('שגיאה בביטול תור:', error);
     }
@@ -116,9 +103,18 @@ const AppointmentsPage: React.FC = () => {
     <div className="p-6 overflow-x-auto">
       <div className="flex justify-between items-center mb-4">
         <div className="space-x-2">
-          <button onClick={() => setView('daily')} className={`px-3 py-1 rounded ${view === 'daily' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>יומי</button>
-          <button onClick={() => setView('weekly')} className={`px-3 py-1 rounded ${view === 'weekly' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>שבועי</button>
-          <button onClick={() => setView('monthly')} className={`px-3 py-1 rounded ${view === 'monthly' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>חודשי</button>
+          <button
+            onClick={() => setView('daily')}
+            className={`px-3 py-1 rounded ${view === 'daily' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}
+          >יומי</button>
+          <button
+            onClick={() => setView('weekly')}
+            className={`px-3 py-1 rounded ${view === 'weekly' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}
+          >שבועי</button>
+          <button
+            onClick={() => setView('monthly')}
+            className={`px-3 py-1 rounded ${view === 'monthly' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}
+          >חודשי</button>
         </div>
         <div className="space-x-2">
           <button onClick={() => setCurrentDate(today)} className="px-3 py-1 bg-blue-100 rounded">היום</button>
@@ -172,14 +168,16 @@ const AppointmentsPage: React.FC = () => {
                 start: startOfMonth(currentDate),
                 end: endOfMonth(currentDate)
               });
-              const rows = [];
+              const rows: Date[][] = [];
               for (let i = 0; i < days.length; i += 7) {
                 rows.push(days.slice(i, i + 7));
               }
               return rows.map((week, rowIdx) => (
                 <tr key={rowIdx}>
                   {week.map((day, colIdx) => {
-                    const hasAppointments = appointments.some(app => isSameDay((app.startTime as Timestamp).toDate(), day));
+                    const hasAppointments = appointments.some(app =>
+                      isSameDay((app.startTime as Timestamp).toDate(), day)
+                    );
                     return (
                       <td key={colIdx} className="border px-4 py-3 text-center">
                         <div className="text-sm font-semibold mb-1">{format(day, 'd/M')}</div>
@@ -209,13 +207,18 @@ const AppointmentsPage: React.FC = () => {
           <h2 className="text-xl font-bold mb-4">
             {format(currentDate, 'EEEE, d בMMMM yyyy', { locale: he })}
           </h2>
-          {appointments.filter(app => isSameDay((app.startTime as Timestamp).toDate(), currentDate)).length === 0 ? (
+          {appointments.filter(app =>
+            isSameDay((app.startTime as Timestamp).toDate(), currentDate)
+          ).length === 0 ? (
             <p className="text-gray-500">אין תורים ביום זה.</p>
           ) : (
             <ul className="space-y-3">
               {appointments
                 .filter(app => isSameDay((app.startTime as Timestamp).toDate(), currentDate))
-                .sort((a, b) => ((a.startTime as Timestamp).toDate().getTime() - (b.startTime as Timestamp).toDate().getTime()))
+                .sort((a, b) =>
+                  (a.startTime as Timestamp).toDate().getTime() -
+                  (b.startTime as Timestamp).toDate().getTime()
+                )
                 .map(app => {
                   const appDate = (app.startTime as Timestamp).toDate();
                   return (
@@ -262,7 +265,7 @@ const AppointmentsPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setSelectedAppointment(null)}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 ml-2"
               >
                 סגור
               </button>
