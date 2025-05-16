@@ -21,7 +21,7 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: mailConfig.user,
     pass: mailConfig.pass,
-  }
+  },
 });
 
 // =======================
@@ -36,7 +36,6 @@ const client     = twilio(accountSid, authToken);
 // Google Calendar helper (lazy load)
 // =======================
 async function getAuthClient() {
-  // load googleapis only when needed to speed up cold start
   const { google } = require('googleapis');
   const auth = new google.auth.GoogleAuth({
     keyFile: path.join(__dirname, 'calendar-service-account.json'),
@@ -74,36 +73,39 @@ exports.sendSmsOnBooking = functions.https.onCall(async (data) => {
   // 1. SMS ללקוחה
   await client.messages.create({ body: message, from: fromPhone, to: formattedClientPhone });
 
-  // 2. מציאת בעלת העסק
-  const ownerSnap = await admin.firestore()
+  // 2. מציאת בעלת העסק ומשיכת calendarId
+  const [ownerSnap] = await admin.firestore()
     .collection('users')
     .where('businessId','==', businessId)
     .where('role','==','admin')
     .limit(1)
-    .get();
+    .get().docs;
 
-  if (!ownerSnap.empty) {
-    const owner = ownerSnap.docs[0].data();
-    const formattedOwnerPhone = owner.phone.startsWith('+') ? owner.phone : `+972${owner.phone.replace(/^0/, '')}`;
+  let calendarId;
+  if (ownerSnap) {
+    const owner = ownerSnap.data();
+    // שליפת calendarId מתוך מסמך העסק
+    const bizDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+    calendarId = bizDoc.data()?.calendarId;
 
     // 3. SMS לבעלת העסק
+    const formattedOwnerPhone = owner.phone.startsWith('+') ? owner.phone : `+972${owner.phone.replace(/^0/, '')}`;
     const rawDate = new Date(startTime);
     const day     = rawDate.toLocaleDateString('he-IL',{ weekday:'long', day:'2-digit', month:'2-digit', year:'numeric', timeZone:'Asia/Jerusalem' });
     const time    = rawDate.toLocaleTimeString('he-IL',{ hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem' });
     const ownerMessage = `📅 תור חדש:\nלקוחה: ${clientName}\nשירות: ${serviceName}\nתאריך: ${day} בשעה ${time}`;
-
     await client.messages.create({ body: ownerMessage, from: fromPhone, to: formattedOwnerPhone });
+  }
 
-    // 4. Google Calendar integration
-    if (owner.calendarId) {
-      await addToGoogleCalendar({
-        clientName,
-        clientPhone: formattedClientPhone,
-        serviceName,
-        notes,
-        startTime: admin.firestore.Timestamp.fromDate(new Date(startTime))
-      }, owner.calendarId);
-    }
+  // 4. יצירת אירוע ביומן
+  if (calendarId) {
+    await addToGoogleCalendar({
+      clientName,
+      clientPhone: formattedClientPhone,
+      serviceName,
+      notes,
+      startTime: admin.firestore.Timestamp.fromDate(new Date(startTime)),
+    }, calendarId);
   }
 
   return { success: true };
@@ -138,7 +140,7 @@ const smsApp = express();
     const now   = new Date();
 
     const snapshot = await admin.firestore()
-      .collection('appointments')
+      .collectionGroup('appointments')
       .where('clientPhone','==', phone)
       .where('status','==','pending')
       .get();
@@ -182,19 +184,23 @@ exports.onIncomingSMS = functions.https.onRequest(smsApp);
 // Firestore trigger: onCreate appointment
 // =======================
 exports.sendAppointmentSmsOnCreate = functions.firestore
-  .document('appointments/{apptId}')
-  .onCreate(async (snap) => {
-    const appt = snap.data();
-    const { businessId, clientPhone, clientName, serviceName, startTime, notes } = appt;
+  .document('businesses/{businessId}/appointments/{appointmentId}')
+  .onCreate(async (snap, context) => {
+    const appointment = snap.data();
+    const businessId  = context.params.businessId;
+    const dateObj     = appointment.startTime.toDate();
+    const day         = dateObj.toLocaleDateString('he-IL',{ weekday:'long', day:'2-digit', month:'2-digit', year:'numeric', timeZone:'Asia/Jerusalem' });
+    const time        = dateObj.toLocaleTimeString('he-IL',{ hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem' });
 
     // SMS ללקוחה
-    const dateObj = startTime.toDate();
-    const day     = dateObj.toLocaleDateString('he-IL',{ weekday:'long', day:'2-digit', month:'2-digit', year:'numeric', timeZone:'Asia/Jerusalem' });
-    const time    = dateObj.toLocaleTimeString('he-IL',{ hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem' });
-    const clientMsg = `היי ${clientName}, התור שלך נקבע ליום ${day} בשעה ${time}.`;
-    await client.messages.create({ body: clientMsg, from: fromPhone, to: clientPhone.startsWith('+') ? clientPhone : `+972${clientPhone.replace(/^0/, '')}` });
+    const clientMsg = `היי ${appointment.clientName}, התור שלך נקבע ליום ${day} בשעה ${time}.`;
+    await client.messages.create({
+      body: clientMsg,
+      from: fromPhone,
+      to: appointment.clientPhone.startsWith('+') ? appointment.clientPhone : `+972${appointment.clientPhone.replace(/^0/, '')}`
+    });
 
-    // SMS לבעלת העסק + Calendar
+    // SMS לבעלת העסק
     const ownerSnap = await admin.firestore()
       .collection('users')
       .where('businessId','==', businessId)
@@ -202,21 +208,27 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
       .limit(1)
       .get();
 
+    let calendarId;
     if (!ownerSnap.empty) {
       const owner = ownerSnap.docs[0].data();
-      const formattedOwnerPhone = owner.phone.startsWith('+') ? owner.phone : `+972${owner.phone.replace(/^0/, '')}`;
-      const ownerMsg = `📌 תור חדש: ${clientName} ליום ${day} בשעה ${time}.`;
-      await client.messages.create({ body: ownerMsg, from: fromPhone, to: formattedOwnerPhone });
+      const formattedOwner = owner.phone.startsWith('+') ? owner.phone : `+972${owner.phone.replace(/^0/, '')}`;
+      const ownerMsg = `📌 תור חדש: ${appointment.clientName} ליום ${day} בשעה ${time}.`;
+      await client.messages.create({ body: ownerMsg, from: fromPhone, to: formattedOwner });
 
-      if (owner.calendarId) {
-        await addToGoogleCalendar({
-          clientName,
-          clientPhone: clientPhone.startsWith('+') ? clientPhone : `+972${clientPhone.replace(/^0/, '')}`,
-          serviceName,
-          notes,
-          startTime
-        }, owner.calendarId);
-      }
+      // שליפת calendarId של העסק
+      const bizDoc = await admin.firestore().collection('businesses').doc(businessId).get();
+      calendarId = bizDoc.data()?.calendarId;
+    }
+
+    // יצירת אירוע ביומן
+    if (calendarId) {
+      await addToGoogleCalendar({
+        clientName:  appointment.clientName,
+        clientPhone: appointment.clientPhone,
+        serviceName: appointment.serviceName,
+        notes:       appointment.notes,
+        startTime:   appointment.startTime,
+      }, calendarId);
     }
   });
 
@@ -224,17 +236,16 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
 // Firestore trigger: onUpdate appointment (cancelled_by_admin)
 // =======================
 exports.notifyClientOnCancel = functions.firestore
-  .document('appointments/{apptId}')
+  .document('businesses/{businessId}/appointments/{appointmentId}')
   .onUpdate(async (change) => {
     const before = change.before.data();
     const after  = change.after.data();
     if (before.status !== 'cancelled_by_admin' && after.status === 'cancelled_by_admin') {
-      const { clientName, clientPhone, startTime } = after;
-      const dateObj = startTime.toDate ? startTime.toDate() : new Date(startTime);
+      const dateObj = after.startTime.toDate ? after.startTime.toDate() : new Date(after.startTime);
       const day     = dateObj.toLocaleDateString('he-IL',{ weekday:'long', day:'2-digit', month:'2-digit', timeZone:'Asia/Jerusalem' });
       const time    = dateObj.toLocaleTimeString('he-IL',{ hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem' });
-      const formattedPhone = clientPhone.startsWith('+') ? clientPhone : `+972${clientPhone.replace(/^0/, '')}`;
-      const body = `שלום ${clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`;
+      const formattedPhone = after.clientPhone.startsWith('+') ? after.clientPhone : `+972${after.clientPhone.replace(/^0/, '')}`;
+      const body    = `שלום ${after.clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`;
       await client.messages.create({ body, from: fromPhone, to: formattedPhone });
     }
   });
