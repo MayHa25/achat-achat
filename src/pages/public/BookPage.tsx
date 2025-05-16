@@ -54,13 +54,16 @@ const BookPage: React.FC = () => {
 
     const fetchData = async () => {
       try {
+        // שאילתה לשירותים
         const servicesQuery = query(
           collection(db, 'services'),
           where('businessId', '==', businessId)
         );
+        // שאילתה לתורים פתוחים בלבד
         const appointmentsQuery = query(
           collection(db, 'appointments'),
-          where('businessId', '==', businessId)
+          where('businessId', '==', businessId),
+          where('status', '==', 'pending')
         );
         const [servicesSnap, appointmentsSnap, availabilityDocSnap] = await Promise.all([
           getDocs(servicesQuery),
@@ -68,16 +71,20 @@ const BookPage: React.FC = () => {
           getDoc(doc(db, 'availability', businessId))
         ]);
 
+        // מיפוי ושמירת שירותים
         const mappedServices: Service[] = servicesSnap.docs
           .map(docSnap => ({ id: docSnap.id, ...(docSnap.data() as Omit<Service, 'id'>) }))
           .filter(s => s.name !== 'שלום בביט');
-
         setServices(mappedServices);
+
+        // שמירת תורים במצב pending בלבד
         setAppointments(appointmentsSnap.docs.map(d => d.data()));
+
+        // זמני פעילות העסק
         const availabilityData = availabilityDocSnap.data();
         setAvailabilities(availabilityData?.businessHours || []);
       } catch (err) {
-        console.error("שגיאה בטעינת נתונים:", err);
+        console.error('שגיאה בטעינת נתונים:', err);
       } finally {
         setLoading(false);
       }
@@ -114,6 +121,7 @@ const BookPage: React.FC = () => {
   const handleBookAppointment = async () => {
     if (!selectedSlot || !selectedServiceId || !businessId || !clientName || !clientPhone) return;
 
+    // בניית התור החדש
     const selectedService = services.find(s => s.id === selectedServiceId)!;
     const selectedDate = addDays(
       startOfWeek(new Date(), { weekStartsOn: 0 }),
@@ -121,7 +129,6 @@ const BookPage: React.FC = () => {
     );
     const [hour, minute] = selectedSlot.time.split(':').map(Number);
     const startTime = setMinutes(setHours(selectedDate, hour), minute);
-    const price = selectedService.price;
 
     const newAppointment = {
       businessId,
@@ -130,35 +137,35 @@ const BookPage: React.FC = () => {
       clientPhone,
       startTime: Timestamp.fromDate(startTime),
       duration: selectedService.duration,
-      price,
+      price: selectedService.price,
       status: 'pending',
       created: Timestamp.now()
     };
 
+    // שמירה במסד
     await addDoc(collection(db, 'appointments'), newAppointment);
 
+    // עדכון או יצירה של לקוח
     const clientQuery = query(
       collection(db, 'clients'),
       where('businessId', '==', businessId),
       where('phone', '==', clientPhone)
     );
     const clientSnap = await getDocs(clientQuery);
-
-    let updatedVisitCount = 1;
-    let updatedTotalAmount = price;
-    let clientStatus = 'מזדמן';
+    let visitCount = 1;
+    let totalAmount = selectedService.price;
+    let status = 'מזדמן';
 
     if (!clientSnap.empty) {
       const clientDoc = clientSnap.docs[0];
       const data = clientDoc.data();
-      updatedVisitCount = (data.visitCount || 0) + 1;
-      updatedTotalAmount = (data.totalAmount || 0) + price;
-      clientStatus = updatedVisitCount >= 11 ? 'VIP' : updatedVisitCount >= 5 ? 'קבוע' : 'מזדמן';
-
+      visitCount = (data.visitCount || 0) + 1;
+      totalAmount = (data.totalAmount || 0) + selectedService.price;
+      status = visitCount >= 11 ? 'VIP' : visitCount >= 5 ? 'קבוע' : 'מזדמן';
       await updateDoc(doc(db, 'clients', clientDoc.id), {
-        visitCount: updatedVisitCount,
-        totalAmount: updatedTotalAmount,
-        status: clientStatus,
+        visitCount,
+        totalAmount,
+        status,
         lastVisit: Timestamp.fromDate(startTime)
       });
     } else {
@@ -166,13 +173,14 @@ const BookPage: React.FC = () => {
         businessId,
         name: clientName,
         phone: clientPhone,
-        visitCount: updatedVisitCount,
-        totalAmount: updatedTotalAmount,
-        status: clientStatus,
+        visitCount,
+        totalAmount,
+        status,
         lastVisit: Timestamp.fromDate(startTime)
       });
     }
 
+    // ניווט לאישור
     navigate('/confirmation', {
       state: {
         appointment: { ...newAppointment },
@@ -187,7 +195,6 @@ const BookPage: React.FC = () => {
       שגיאה: לא נמצא מזהה עסק בכתובת.
     </p>;
   }
-
   if (loading) {
     return <p className="text-center mt-10">טוען נתונים...</p>;
   }
@@ -202,32 +209,19 @@ const BookPage: React.FC = () => {
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6">קביעת תור</h1>
 
+      {/* כפתורי ניווט שבוע */}
       <div className="flex justify-between mb-4">
-        <button
-          onClick={() => setWeekOffset(weekOffset - 1)}
-          className="px-3 py-1 bg-gray-200 rounded"
-        >← שבוע קודם</button>
-        <button
-          onClick={() => setWeekOffset(0)}
-          className="px-3 py-1 bg-blue-100 rounded"
-        >שבוע נוכחי</button>
-        <button
-          onClick={() => setWeekOffset(weekOffset + 1)}
-          className="px-3 py-1 bg-gray-200 rounded"
-        >שבוע הבא →</button>
+        <button onClick={() => setWeekOffset(weekOffset - 1)} className="px-3 py-1 bg-gray-200 rounded">← שבוע קודם</button>
+        <button onClick={() => setWeekOffset(0)} className="px-3 py-1 bg-blue-100 rounded">שבוע נוכחי</button>
+        <button onClick={() => setWeekOffset(weekOffset + 1)} className="px-3 py-1	bg-gray-200 rounded">שבוע הבא →</button>
       </div>
 
+      {/* בחירת שירות */}
       <div className="mb-6">
         <h2 className="font-medium mb-2">בחרי שירות</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {services.map(service => (
-            <div
-              key={service.id}
-              className={`border p-4 rounded cursor-pointer ${
-                selectedServiceId === service.id ? 'border-primary-600 bg-primary-50' : 'border-gray-200'}
-              `}
-              onClick={() => setSelectedServiceId(service.id)}
-            >
+            <div key={service.id} className={`border p-4 rounded cursor-pointer ${selectedServiceId === service.id ? 'border-primary-600 bg-primary-50' : 'border-gray-200'}`} onClick={() => setSelectedServiceId(service.id)}>
               <p className="font-semibold">{service.name}</p>
               <p className="text-sm text-gray-500">{service.duration} דקות</p>
               <p className="text-sm text-gray-600">₪{service.price}</p>
@@ -236,97 +230,49 @@ const BookPage: React.FC = () => {
         </div>
       </div>
 
+      {/* בחירת מועד */}
       {selectedServiceId && (
         <>
           <h2 className="font-medium mb-3">בחרי מועד</h2>
           <div className="overflow-x-auto mb-6">
             <table className="min-w-full border border-gray-300">
               <thead>
-                <tr>
-                  {weekDays.map((day, i) => {
-                    const date = addDays(currentWeekStart, i);
-                    return (
-                      <th
-                        key={i}
-                        className="border px-4 py-2 text-sm font-medium"
-                      >
-                        {day} <br />{format(date, 'd/M')}
-                      </th>
-                    );
-                  })}
-                </tr>
+                <tr>{weekDays.map((day, i) => {
+                  const date = addDays(currentWeekStart, i);
+                  return <th key={i} className="border px-4 py-2 text-sm font-medium">{day}<br />{format(date, 'd/M')}</th>;
+                })}</tr>
               </thead>
               <tbody>
                 {[...Array(12).keys()].map(row => (
-                  <tr key={row}>
-                    {weekDays.map((_, dayIndex) => {
-                      const hours = getAvailableHoursForDay(dayIndex);
-                      const time = hours[row];
-                      const date = addDays(currentWeekStart, dayIndex);
-                      const isPastDay = date < today;
-
-                      if (!time) {
-                        return (
-                          <td
-                            key={dayIndex}
-                            className="border px-4 py-2 text-center text-gray-300"
-                          >—</td>
-                        );
-                      }
-
-                      const taken = isTimeTaken(date, time);
-                      const disabledCell = taken || isPastDay;
-                      const isSelected = selectedSlot?.day === dayIndex && selectedSlot.time === time;
-
-                      return (
-                        <td key={dayIndex} className="border px-1 py-2 text-center">
-                          <button
-                            disabled={disabledCell}
-                            onClick={() => setSelectedSlot({ day: dayIndex, time })}
-                            className={`w-full rounded px-2 py-1 text-sm ${
-                              disabledCell
-                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                : isSelected
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-white hover:bg-primary-100'
-                            }`}
-                          >
-                            {time}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
+                  <tr key={row}>{weekDays.map((_, dayIndex) => {
+                    const hours = getAvailableHoursForDay(dayIndex);
+                    const time = hours[row];
+                    const date = addDays(currentWeekStart, dayIndex);
+                    const isPastDay = date < today;
+                    if (!time) return <td key={dayIndex} className="border px-4 py-2 text-center text-gray-300">—</td>;
+                    const taken = isTimeTaken(date, time);
+                    const disabledCell = taken || isPastDay;
+                    const isSelected = selectedSlot?.day === dayIndex && selectedSlot.time === time;
+                    return (
+                      <td key={dayIndex} className="border px-1 py-2 text-center">
+                        <button disabled={disabledCell} onClick={() => setSelectedSlot({ day: dayIndex, time })} className={`w-full rounded px-2 py-1 text-sm ${disabledCell ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : isSelected ? 'bg-primary-600 text-white' : 'bg-white hover:bg-primary-100'}`}>{time}</button>
+                      </td>
+                    );
+                  })}</tr>
                 ))}
               </tbody>
             </table>
           </div>
 
+          {/* פרטי לקוח */}
           <div className="mb-6">
             <h2 className="font-medium mb-2">פרטי יצירת קשר</h2>
-            <input
-              type="text"
-              placeholder="שם מלא"
-              value={clientName}
-              onChange={e => setClientName(e.target.value)}
-              className="w-full border px-4 py-2 rounded mb-3"
-            />
-            <input
-              type="tel"
-              placeholder="מספר טלפון"
-              value={clientPhone}
-              onChange={e => setClientPhone(e.target.value)}
-              className="w-full border px-4 py-2 rounded"
-            />
+            <input type="text" placeholder="שם מלא" value={clientName} onChange={e => setClientName(e.target.value)} className="w-full border px-4 py-2 rounded mb-3" />
+            <input type="tel" placeholder="מספר טלפון" value={clientPhone} onChange={e => setClientPhone(e.target.value)} className="w-full border px-4 py-2 rounded" />
           </div>
 
-          <button
-            onClick={handleBookAppointment}
-            disabled={!clientName || !clientPhone || !selectedSlot}
-            className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700 transition"
-          >
-            קבעי תור
-          </button>
+          {/* כפתור אישור */}
+          <button onClick={handleBookAppointment} disabled={!clientName || !clientPhone || !selectedSlot} className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700 transition">קבעי תור</button>
         </>
       )}
     </div>
