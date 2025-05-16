@@ -1,3 +1,4 @@
+// src/pages/admin/ClientsPage.tsx
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -25,11 +26,14 @@ const ClientsPage: React.FC = () => {
 
     const fetchClients = async () => {
       try {
-        const q = query(collection(db, 'clients'), where('businessId', '==', user.businessId));
+        const q = query(
+          collection(db, 'clients'),
+          where('businessId', '==', user.businessId)
+        );
         const snapshot = await getDocs(q);
         const data = snapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data(),
+          ...(doc.data() as any),
         })) as Client[];
 
         setClients(data);
@@ -70,9 +74,13 @@ const ClientsPage: React.FC = () => {
                   <p className="text-sm text-gray-500">
                     ביקורים: {client.visitCount} | סה"כ תשלום: ₪{client.totalAmount}
                     <br />
-                    ביקור אחרון:{' '}
+                    ביקור אחרון: {' '}
                     {client.lastVisit?.seconds
-                      ? format(new Date(client.lastVisit.seconds * 1000), 'd בMMM yyyy', { locale: he })
+                      ? format(
+                          new Date(client.lastVisit.seconds * 1000),
+                          'd בMMM yyyy',
+                          { locale: he }
+                        )
                       : 'לא ידוע'}
                   </p>
                   {client.phone && (
