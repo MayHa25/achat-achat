@@ -162,7 +162,6 @@ smsApp.post("/", async (req, res) => {
             ? owner.phone
             : `+972${owner.phone.replace(/^0/, "")}`;
 
-          // הוספת timeZone להצגה נכונה
           const day = startTime.toLocaleDateString("he-IL", { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'Asia/Jerusalem' });
           const time = startTime.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
 
@@ -224,5 +223,26 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
     if (formattedOwnerPhone) {
       const ownerMsg = `📌 תור חדש: ${clientName} ליום ${day} בשעה ${time}.`;
       await client.messages.create({ body: ownerMsg, from: fromPhone, to: formattedOwnerPhone });
+    }
+  });
+
+// ===== Firestore trigger: notification ללקוח על ביטול תור על ידי בעלת העסק =====
+exports.notifyClientOnCancel = functions.firestore
+  .document('appointments/{apptId}')
+  .onUpdate(async (change) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    // אם הסטטוס השתנה ל"cancelled_by_admin"
+    if (before.status !== 'cancelled_by_admin' && after.status === 'cancelled_by_admin') {
+      const clientName = after.clientName;
+      const clientPhoneRaw = after.clientPhone;
+      const dateObj = after.startTime.toDate ? after.startTime.toDate() : new Date(after.startTime);
+      const day = dateObj.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'Asia/Jerusalem' });
+      const time = dateObj.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
+      const formattedPhone = clientPhoneRaw.startsWith('+')
+        ? clientPhoneRaw
+        : `+972${clientPhoneRaw.replace(/^0/, '')}`;
+      const body = `שלום ${clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`;
+      await client.messages.create({ body, from: fromPhone, to: formattedPhone });
     }
   });
