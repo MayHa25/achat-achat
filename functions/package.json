@@ -19,6 +19,7 @@
     "firebase-admin": "^11.10.1",
     "firebase-functions": "^4.4.1",
     "googleapis": "^105.0.0",
+    "nodemailer": "^7.0.3",
     "twilio": "^4.23.0"
   },
   "private": true

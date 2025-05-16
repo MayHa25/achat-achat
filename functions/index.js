@@ -6,8 +6,19 @@ const twilio    = require("twilio");
 const express   = require("express");
 const bodyParser= require("body-parser");
 const path      = require("path");
+const nodemailer = require("nodemailer");
 
 admin.initializeApp();
+
+// משתני הסביבה שהגדרת דרך `firebase functions:config:set`
+const mailConfig = functions.config().mail;
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: mailConfig.user,
+    pass: mailConfig.pass,
+  }
+});
 
 const accountSid = functions.config()?.twilio?.sid || process.env.TWILIO_SID;
 const authToken  = functions.config()?.twilio?.token || process.env.TWILIO_AUTH_TOKEN;
@@ -228,7 +239,6 @@ exports.notifyClientOnCancel = functions.firestore
   .onUpdate(async (change) => {
     const before = change.before.data();
     const after  = change.after.data();
-    // רק אם הסטטוס השתנה ל"cancelled_by_admin"
     if (before.status !== 'cancelled_by_admin' && after.status === 'cancelled_by_admin') {
       const { clientName, clientPhone, startTime } = after;
       const dateObj = startTime.toDate ? startTime.toDate() : new Date(startTime);
@@ -239,3 +249,29 @@ exports.notifyClientOnCancel = functions.firestore
       await client.messages.create({ body, from: fromPhone, to: formattedPhone });
     }
   });
+
+/**
+ * פונקציית HTTP לקבלת טופס צור-קשר ושיחרור מייל אליך
+ */
+exports.sendContactForm = functions.https.onRequest(async (req, res) => {
+  try {
+    const { businessName, contactName, phone, email, selfRegister } = req.body;
+    const text = `
+שם העסק: ${businessName}
+איש קשר: ${contactName}
+טלפון: ${phone}
+אימייל: ${email}
+הרשמה עצמית: ${selfRegister ? 'כן' : 'לא'}
+`;
+    await transporter.sendMail({
+      from: mailConfig.user,
+      to: mailConfig.to,
+      subject: 'פנייה חדשה מטופס צור קשר',
+      text
+    });
+    res.status(200).send({ success: true });
+  } catch (err) {
+    console.error("sendContactForm error:", err);
+    res.status(500).send({ success: false, error: err.message });
+  }
+});
