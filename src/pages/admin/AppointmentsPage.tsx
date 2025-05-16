@@ -48,21 +48,29 @@ const AppointmentsPage: React.FC = () => {
     const fetchAppointmentsAndServices = async () => {
       try {
         const [appointmentsSnap, servicesSnap] = await Promise.all([
-          getDocs(query(collection(db, 'appointments'), where('businessId', '==', user.businessId))),
-          getDocs(query(collection(db, 'services'), where('businessId', '==', user.businessId))),
+          getDocs(query(
+            collection(db, 'appointments'),
+            where('businessId', '==', user.businessId)
+          )),
+          getDocs(query(
+            collection(db, 'services'),
+            where('businessId', '==', user.businessId)
+          )),
         ]);
 
+        // Map services
         const services: Record<string, string> = {};
         servicesSnap.docs.forEach(doc => {
-          services[doc.id] = (doc.data() as any).name;
+          const data = doc.data() as any;
+          services[doc.id] = data.name;
         });
         setServicesMap(services);
 
-        const appointmentsData = appointmentsSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setAppointments(appointmentsData);
+        // Map and filter appointments: only pending
+        const apps = appointmentsSnap.docs
+          .map(doc => ({ id: doc.id, ...(doc.data() as any) }))
+          .filter(app => app.status === 'pending');
+        setAppointments(apps);
       } catch (error) {
         console.error('שגיאה בטעינת תורים:', error);
       }
@@ -73,12 +81,12 @@ const AppointmentsPage: React.FC = () => {
 
   const cancelAppointment = async (appointmentId: string) => {
     try {
-      // עדכון סטטוס התור ל"cancelled_by_admin" במקום מחיקה
+      // עדכון סטטוס התור לביטול ע"י בעלת העסק
       await updateDoc(doc(db, 'appointments', appointmentId), {
         status: 'cancelled_by_admin',
       });
 
-      // הסרת התור מ-state כדי לעדכן את הממשק
+      // עדכון UI: הסרת התור מהרשימה
       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
       setSelectedAppointment(null);
     } catch (error) {
@@ -134,9 +142,7 @@ const AppointmentsPage: React.FC = () => {
                 <div className="font-bold mb-1 text-sm">
                   {format(day, 'd/M (EEEE)', { locale: he })}
                 </div>
-                {dayAppointments.length === 0 ? (
-                  <p className="text-gray-400 text-xs">אין תורים</p>
-                ) : (
+                {dayAppointments.length ? (
                   <ul className="text-xs space-y-1">
                     {dayAppointments.map(app => (
                       <li
@@ -148,6 +154,8 @@ const AppointmentsPage: React.FC = () => {
                       </li>
                     ))}
                   </ul>
+                ) : (
+                  <p className="text-gray-400 text-xs">אין תורים</p>
                 )}
               </div>
             );
@@ -165,32 +173,24 @@ const AppointmentsPage: React.FC = () => {
           <tbody>
             {(() => {
               const days = eachDayOfInterval({
-                start: startOfMonth(currentDate),
-                end: endOfMonth(currentDate)
+                start: startOfMonth(currentDate), end: endOfMonth(currentDate)
               });
               const rows: Date[][] = [];
-              for (let i = 0; i < days.length; i += 7) {
-                rows.push(days.slice(i, i + 7));
-              }
-              return rows.map((week, rowIdx) => (
-                <tr key={rowIdx}>
-                  {week.map((day, colIdx) => {
-                    const hasAppointments = appointments.some(app =>
+              for (let i = 0; i < days.length; i += 7) rows.push(days.slice(i, i + 7));
+              return rows.map((week, idx) => (
+                <tr key={idx}>
+                  {week.map((day, j) => {
+                    const hasApps = appointments.some(app =>
                       isSameDay((app.startTime as Timestamp).toDate(), day)
                     );
                     return (
-                      <td key={colIdx} className="border px-4 py-3 text-center">
+                      <td key={j} className="border px-4 py-3 text-center">
                         <div className="text-sm font-semibold mb-1">{format(day, 'd/M')}</div>
-                        {hasAppointments ? (
+                        {hasApps ? (
                           <button
                             className="text-xs bg-primary-600 text-white rounded px-2 py-1"
-                            onClick={() => {
-                              setCurrentDate(day);
-                              setView('daily');
-                            }}
-                          >
-                            צפייה
-                          </button>
+                            onClick={() => { setCurrentDate(day); setView('daily'); }}
+                          >צפייה</button>
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
                         )}
@@ -209,9 +209,7 @@ const AppointmentsPage: React.FC = () => {
           </h2>
           {appointments.filter(app =>
             isSameDay((app.startTime as Timestamp).toDate(), currentDate)
-          ).length === 0 ? (
-            <p className="text-gray-500">אין תורים ביום זה.</p>
-          ) : (
+          ).length ? (
             <ul className="space-y-3">
               {appointments
                 .filter(app => isSameDay((app.startTime as Timestamp).toDate(), currentDate))
@@ -220,28 +218,28 @@ const AppointmentsPage: React.FC = () => {
                   (b.startTime as Timestamp).toDate().getTime()
                 )
                 .map(app => {
-                  const appDate = (app.startTime as Timestamp).toDate();
+                  const dateObj = (app.startTime as Timestamp).toDate();
                   return (
                     <li key={app.id} className="border p-3 rounded flex justify-between items-center">
                       <div>
-                        <p><strong>{format(appDate, 'HH:mm')}</strong> - {app.clientName}</p>
+                        <p><strong>{format(dateObj, 'HH:mm')}</strong> - {app.clientName}</p>
                         <p className="text-sm text-gray-500">{servicesMap[app.serviceId]}</p>
                       </div>
                       <button
-                        disabled={isPast(appDate)}
+                        disabled={isPast(dateObj)}
                         onClick={() => cancelAppointment(app.id)}
                         className={`px-3 py-1 rounded ${
-                          isPast(appDate)
+                          isPast(dateObj)
                             ? 'bg-gray-300 text-gray-600 cursor-default'
                             : 'bg-red-500 text-white'
                         }`}
-                      >
-                        {isPast(appDate) ? 'בוצע' : 'בטל'}
-                      </button>
+                      >{isPast(dateObj) ? 'בוצע' : 'בטל'}</button>
                     </li>
                   );
                 })}
             </ul>
+          ) : (
+            <p className="text-gray-500">אין תורים ביום זה.</p>
           )}
         </div>
       )}
@@ -255,20 +253,9 @@ const AppointmentsPage: React.FC = () => {
             <p><strong>טיפול:</strong> {servicesMap[selectedAppointment.serviceId] || '—'}</p>
             <p><strong>תאריך:</strong> {format((selectedAppointment.startTime as Timestamp).toDate(), 'd בMMMM yyyy', { locale: he })}</p>
             <p><strong>שעה:</strong> {format((selectedAppointment.startTime as Timestamp).toDate(), 'HH:mm')}</p>
-
             <div className="mt-4 flex justify-between">
-              <button
-                onClick={() => cancelAppointment(selectedAppointment.id)}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                בטל תור
-              </button>
-              <button
-                onClick={() => setSelectedAppointment(null)}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 ml-2"
-              >
-                סגור
-              </button>
+              <button onClick={() => cancelAppointment(selectedAppointment.id)} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">בטל תור</button>
+              <button onClick={() => setSelectedAppointment(null)} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 ml-2">סגור</button>
             </div>
           </div>
         </div>
