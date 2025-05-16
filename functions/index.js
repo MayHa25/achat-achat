@@ -5,6 +5,7 @@ const functions   = require("firebase-functions");
 const admin       = require("firebase-admin");
 const twilio      = require("twilio");
 const express     = require("express");
+const cors        = require("cors");
 const bodyParser  = require("body-parser");
 const path        = require("path");
 const nodemailer  = require("nodemailer");
@@ -26,9 +27,9 @@ const transporter = nodemailer.createTransport({
 // =======================
 // Twilio setup
 // =======================
-const accountSid = functions.config()?.twilio?.sid  || process.env.TWILIO_SID;
-const authToken  = functions.config()?.twilio?.token|| process.env.TWILIO_AUTH_TOKEN;
-const fromPhone  = functions.config()?.twilio?.phone|| process.env.TWILIO_PHONE;
+const accountSid = functions.config()?.twilio?.sid   || process.env.TWILIO_SID;
+const authToken  = functions.config()?.twilio?.token || process.env.TWILIO_AUTH_TOKEN;
+const fromPhone  = functions.config()?.twilio?.phone || process.env.TWILIO_PHONE;
 const client     = twilio(accountSid, authToken);
 
 // =======================
@@ -47,7 +48,7 @@ async function addToGoogleCalendar(appointment) {
   const { google } = require("googleapis");
   const calendar   = google.calendar("v3");
   const authClient = await getAuthClient();
-  const calendarId = "calendar-owner@gmail.com";
+  const calendarId = "calendar-owner@gmail.com"; // שנה לכתובת היומן שלך
 
   const dateObj = appointment.startTime.toDate();
   const event = {
@@ -217,7 +218,7 @@ exports.onIncomingSMS = functions.https.onRequest(smsApp);
 exports.sendAppointmentSmsOnCreate = functions.firestore
   .document('appointments/{apptId}')
   .onCreate(async (snap) => {
-    const appt          = snap.data();
+    const appt = snap.data();
     const { businessId, clientPhone, clientName, startTime } = appt;
 
     // מציאת בעלת העסק
@@ -230,9 +231,7 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
 
     const ownerPhoneRaw = ownerSnap.empty ? null : ownerSnap.docs[0].data().phone;
     const formattedOwnerPhone = ownerPhoneRaw
-      ? ownerPhoneRaw.startsWith("+")
-        ? ownerPhoneRaw
-        : `+972${ownerPhoneRaw.replace(/^0/, "")}`
+      ? (ownerPhoneRaw.startsWith("+") ? ownerPhoneRaw : `+972${ownerPhoneRaw.replace(/^0/, "")}`)
       : null;
 
     const dateObj = startTime.toDate();
@@ -248,9 +247,7 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
     await client.messages.create({
       body: clientMsg,
       from: fromPhone,
-      to: clientPhone.startsWith("+")
-        ? clientPhone
-        : `+972${clientPhone.replace(/^0/, "")}`
+      to: clientPhone.startsWith("+") ? clientPhone : `+972${clientPhone.replace(/^0/, "")}`
     });
 
     // SMS לבעלת העסק
@@ -292,15 +289,14 @@ exports.notifyClientOnCancel = functions.firestore
   });
 
 // =======================
-// HTTP function: sendContactForm
+// HTTP function: sendContactForm (עם CORS)
 // =======================
 const contactApp = express();
-// מאפשר JSON body parsing
-contactApp.use(bodyParser.json());
+contactApp.use(cors({ origin: true }));          // מאפשר ל-front לשלוח מכל מקור
+contactApp.use(bodyParser.json());                // JSON parsing
 
 contactApp.post("/", async (req, res) => {
   try {
-    // מקריא את selfRegister מה-front
     const { businessName, contactName, phone, email, selfRegister } = req.body;
 
     const text = `
