@@ -23,7 +23,6 @@ const ConfirmationPage: React.FC = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
-  const [payNow, setPayNow] = useState(false); // ✅ תשלום מיידי
 
   if (!appointment || !client || !service || !appointment.startTime) {
     return (
@@ -50,7 +49,10 @@ const ConfirmationPage: React.FC = () => {
       const sendSMS = httpsCallable(functions, 'sendSmsOnBooking');
       const businessId = appointment.businessId;
 
-      const message = `התור שלך בנושא ${service.name} נקבע ל־${format(appointment.startTime, 'dd.MM.yyyy')}, בשעה ${format(appointment.startTime, 'HH:mm')}.
+      const message = `התור שלך בנושא ${service.name} נקבע ל־${format(
+        appointment.startTime,
+        'dd.MM.yyyy'
+      )}, בשעה ${format(appointment.startTime, 'HH:mm')}.
 לביטול שלחי את הספרה 1 עד 24 שעות מראש.`;
 
       await sendSMS({
@@ -81,31 +83,13 @@ const ConfirmationPage: React.FC = () => {
               </div>
               <h1 className="text-2xl font-bold">התור שלך נקבע בהצלחה</h1>
               <p className="text-gray-600">
-                ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה {format(appointment.startTime, 'HH:mm')}
+                ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה{' '}
+                {format(appointment.startTime, 'HH:mm')}
               </p>
-              <p className="text-sm text-gray-500 mt-1">באפשרותך לשלם כעת או במועד אחר</p>
+              <p className="text-sm text-gray-500 mt-1">באפשרותך לשלם במועד אחר</p>
             </div>
 
             <form onSubmit={handlePayment}>
-              <div className="mb-4">
-                <label className="flex items-center gap-2 text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={payNow}
-                    onChange={() => setPayNow(!payNow)}
-                  />
-                  אני מעוניינת לשלם עכשיו באמצעות Bit
-                </label>
-              </div>
-
-              {payNow && (
-                <div className="p-4 border border-gray-200 rounded mb-6 text-center">
-                  <p className="mb-2">שלחי תשלום ל:</p>
-                  <p className="text-xl font-bold">050-1234567</p>
-                  <p className="text-gray-500 mt-2">נא לציין את שמך ותאריך התור בהערות</p>
-                </div>
-              )}
-
               <button
                 type="submit"
                 disabled={isProcessing}
@@ -128,7 +112,8 @@ const ConfirmationPage: React.FC = () => {
         </div>
         <h1 className="text-3xl font-bold mb-2">תודה {client.name}!</h1>
         <p className="text-lg text-gray-600">
-          תורך נקבע ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה {format(appointment.startTime, 'HH:mm')}.
+          תורך נקבע ליום {format(appointment.startTime, 'EEEE, d בMMMM yyyy', { locale: he })} בשעה{' '}
+          {format(appointment.startTime, 'HH:mm')}.
           <br />
           שלחנו לך אישור בהודעת טקסט למספר {client.phone}.
         </p>
