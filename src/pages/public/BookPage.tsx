@@ -57,12 +57,11 @@ const BookPage: React.FC = () => {
 
     const fetchData = async () => {
       try {
+        // שליפת שירותים
         const servicesSnap = await getDocs(
-          query(
-            collection(db, 'services'),
-            where('businessId', '==', businessId)
-          )
+          query(collection(db, 'services'), where('businessId', '==', businessId))
         );
+        // שליפת תורים בהמתנה
         const appointmentsSnap = await getDocs(
           query(
             collection(db, 'appointments'),
@@ -70,20 +69,19 @@ const BookPage: React.FC = () => {
             where('status', '==', 'pending')
           )
         );
-        const availabilityDoc = await getDoc(
-          doc(db, 'availability', businessId)
-        );
+        // שליפת הגדרות זמינות
+        const availabilityDoc = await getDoc(doc(db, 'availability', businessId));
 
-        // שירותים
+        // עיבוד שירותים
         const mappedServices: Service[] = servicesSnap.docs
           .map(d => ({ id: d.id, ...(d.data() as Omit<Service, 'id'>) }))
           .filter(s => s.name !== 'שלום בביט');
         setServices(mappedServices);
 
-        // תורים
+        // עיבוד תורים
         setAppointments(appointmentsSnap.docs.map(d => d.data()));
 
-        // שעות פעילות
+        // עיבוד זמינות עסקית
         const availabilityData = availabilityDoc.data();
         setAvailabilities(availabilityData?.businessHours || []);
       } catch (err) {
@@ -96,6 +94,7 @@ const BookPage: React.FC = () => {
     fetchData();
   }, [businessId]);
 
+  // קבלת שעות זמין ליום נתון
   const getAvailableHoursForDay = (dayIndex: number): string[] => {
     const dayAvailability = availabilities.find(
       a => a.dayOfWeek === dayIndex && a.available
@@ -110,6 +109,7 @@ const BookPage: React.FC = () => {
     return hours;
   };
 
+  // בדיקה אם שעה תפוסה
   const isTimeTaken = (date: Date, time: string): boolean => {
     const d = new Date(date);
     const [h, m] = time.split(':').map(Number);
@@ -120,24 +120,20 @@ const BookPage: React.FC = () => {
     });
   };
 
+  // טיפול בקביעת תור
   const handleBookAppointment = async () => {
-    if (
-      !selectedSlot ||
-      !selectedServiceId ||
-      !businessId ||
-      !clientName ||
-      !clientPhone
-    )
+    if (!selectedSlot || !selectedServiceId || !businessId || !clientName || !clientPhone)
       return;
 
-    // בוחרים תאריך ושעה
     const selectedService = services.find(s => s.id === selectedServiceId)!;
     const weekStart = addWeeks(
       startOfWeek(new Date(), { weekStartsOn: 0 }),
       weekOffset
     );
     const [hour, minute] = selectedSlot.time.split(':').map(Number);
-    const startTimeDate = setMinutes(setHours(weekStart, hour), minute);
+    // הוספת סטת יום לפני קביעת שעות
+    const dayDate = addDays(weekStart, selectedSlot.day);
+    const startTimeDate = setMinutes(setHours(dayDate, hour), minute);
 
     const newAppointment = {
       businessId,
@@ -152,27 +148,23 @@ const BookPage: React.FC = () => {
     };
 
     try {
-      // שמירה במסד וקבלת ה־ID
       const appointmentRef = await addDoc(
         collection(db, 'appointments'),
         newAppointment
       );
 
-      // קריאה לפונקציית ה־Cloud Function שישלח SMS
+      // שליחת SMS
       try {
         await fetch(SEND_SMS_FN_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            appointmentId: appointmentRef.id,
-            businessId
-          })
+          body: JSON.stringify({ appointmentId: appointmentRef.id, businessId })
         });
       } catch (smsErr) {
-        console.error('שגיאה בשליחת SMS לבעל העסק:', smsErr);
+        console.error('שגיאה בשליחת SMS:', smsErr);
       }
 
-      // עדכון/יצירת לקוח
+      // עדכון או יצירת לקוח
       const clientSnap = await getDocs(
         query(
           collection(db, 'clients'),
@@ -180,7 +172,6 @@ const BookPage: React.FC = () => {
           where('phone', '==', clientPhone)
         )
       );
-
       let visitCount = 1;
       let totalAmount = selectedService.price;
       let status = 'מזדמן';
@@ -190,12 +181,7 @@ const BookPage: React.FC = () => {
         const data = cDoc.data();
         visitCount = (data.visitCount || 0) + 1;
         totalAmount = (data.totalAmount || 0) + selectedService.price;
-        status =
-          visitCount >= 11
-            ? 'VIP'
-            : visitCount >= 5
-            ? 'קבוע'
-            : 'מזדמן';
+        status = visitCount >= 11 ? 'VIP' : visitCount >= 5 ? 'קבוע' : 'מזדמן';
         await updateDoc(doc(db, 'clients', cDoc.id), {
           visitCount,
           totalAmount,
@@ -214,13 +200,9 @@ const BookPage: React.FC = () => {
         });
       }
 
-      // ניווט לאישור
+      // נווט לאישור תור
       navigate('/confirmation', {
-        state: {
-          appointment: { id: appointmentRef.id, ...newAppointment },
-          client: { name: clientName, phone: clientPhone },
-          service: selectedService
-        }
+        state: { appointment: { id: appointmentRef.id, ...newAppointment }, client: { name: clientName, phone: clientPhone }, service: selectedService }
       });
     } catch (err) {
       console.error('שגיאה בקביעת התור:', err);
@@ -228,11 +210,7 @@ const BookPage: React.FC = () => {
   };
 
   if (!businessId) {
-    return (
-      <p className="text-center mt-10 text-red-600 font-bold">
-        שגיאה: לא נמצא מזהה עסק בכתובת.
-      </p>
-    );
+    return <p className="text-center mt-10 text-red-600 font-bold">שגיאה: לא נמצא מזהה עסק בכתובת.</p>;
   }
   if (loading) {
     return <p className="text-center mt-10">טוען נתונים...</p>;
@@ -248,29 +226,14 @@ const BookPage: React.FC = () => {
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6">קביעת תור</h1>
 
-      {/* ניווט שבועות */}
+      {/* ניווט בין שבועות */}
       <div className="flex justify-between mb-4">
-        <button
-          onClick={() => setWeekOffset(weekOffset - 1)}
-          className="px-3 py-1 bg-gray-200 rounded"
-        >
-          ← שבוע קודם
-        </button>
-        <button
-          onClick={() => setWeekOffset(0)}
-          className="px-3 py-1 bg-blue-100 rounded"
-        >
-          שבוע נוכחי
-        </button>
-        <button
-          onClick={() => setWeekOffset(weekOffset + 1)}
-          className="px-3 py-1 bg-gray-200 rounded"
-        >
-          שבוע הבא →
-        </button>
+        <button onClick={() => setWeekOffset(weekOffset - 1)} className="px-3 py-1 bg-gray-200 rounded">← שבוע קודם</button>
+        <button onClick={() => setWeekOffset(0)} className="px-3 py-1 bg-blue-100 rounded">שבוע נוכחי</button>
+        <button onClick={() => setWeekOffset(weekOffset + 1)} className="px-3 py-1 bg-gray-200 rounded">שבוע הבא →</button>
       </div>
 
-      {/* שירותים */}
+      {/* בחירת שירות */}
       <div className="mb-6">
         <h2 className="font-medium mb-2">בחרי שירות</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -280,16 +243,10 @@ const BookPage: React.FC = () => {
               <div
                 key={s.id}
                 onClick={() => setSelectedServiceId(s.id)}
-                className={`border p-4 rounded cursor-pointer ${
-                  isSelected
-                    ? 'border-primary-600 bg-primary-50'
-                    : 'border-gray-200'
-                }`}
+                className={`border p-4 rounded cursor-pointer ${isSelected ? 'border-primary-600 bg-primary-50' : 'border-gray-200'}`}
               >
                 <p className="font-semibold">{s.name}</p>
-                <p className="text-sm text-gray-500">
-                  {s.duration} דקות
-                </p>
+                <p className="text-sm text-gray-500">{s.duration} דקות</p>
                 <p className="text-sm text-gray-600">₪{s.price}</p>
               </div>
             );
@@ -301,18 +258,14 @@ const BookPage: React.FC = () => {
       {selectedServiceId && (
         <>
           <h2 className="font-medium mb-3">בחרי מועד</h2>
-          {/* here we force LTR direction for correct day indexing */}
-          <div className="overflow-x-auto mb-6" dir="ltr">  
+          <div className="overflow-x-auto mb-6" dir="rtl">
             <table className="min-w-full border border-gray-300">
               <thead>
                 <tr>
                   {weekDays.map((day, i) => {
                     const date = addDays(currentWeekStart, i);
                     return (
-                      <th
-                        key={i}
-                        className="border px-4 py-2 text-sm font-medium"
-                      >
+                      <th key={i} className="border px-4 py-2 text-sm font-medium">
                         {day}
                         <br />
                         {format(date, 'd/M')}
@@ -329,38 +282,21 @@ const BookPage: React.FC = () => {
                       const time = hours[row];
                       const date = addDays(currentWeekStart, dayIndex);
                       const isPast = date < today;
+
                       if (!time) {
-                        return (
-                          <td
-                            key={dayIndex}
-                            className="border px-4 py-2 text-center text-gray-300"
-                          >
-                            —
-                          </td>
-                        );
+                        return <td key={dayIndex} className="border px-4 py-2 text-center text-gray-300">—</td>;
                       }
+
                       const taken = isTimeTaken(date, time);
                       const disabled = taken || isPast;
-                      const selected =
-                        selectedSlot?.day === dayIndex &&
-                        selectedSlot.time === time;
+                      const selected = selectedSlot?.day === dayIndex && selectedSlot.time === time;
+
                       return (
-                        <td
-                          key={dayIndex}
-                          className="border px-1 py-2 text-center"
-                        >
+                        <td key={dayIndex} className="border px-1 py-2 text-center">
                           <button
                             disabled={disabled}
-                            onClick={() =>
-                              setSelectedSlot({ day: dayIndex, time })
-                            }
-                            className={`w-full rounded px-2 py-1 text-sm ${
-                              disabled
-                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                : selected
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-white hover:bg-primary-100'
-                            }`}
+                            onClick={() => setSelectedSlot({ day: dayIndex, time })}
+                            className={`w-full rounded px-2 py-1 text-sm ${disabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : selected ? 'bg-primary-600 text-white' : 'bg-white hover:bg-primary-100'}`}
                           >
                             {time}
                           </button>
@@ -392,7 +328,7 @@ const BookPage: React.FC = () => {
             />
           </div>
 
-          {/* אישור */}
+          {/* כפתור קביעת תור */}
           <button
             onClick={handleBookAppointment}
             disabled={!clientName || !clientPhone || !selectedSlot}
