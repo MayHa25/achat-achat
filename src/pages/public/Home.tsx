@@ -1,6 +1,5 @@
 // src/pages/Home.tsx
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 
 const CONTACT_FORM_FN_URL =
@@ -61,8 +60,7 @@ const Home: React.FC = () => {
       if (!res.ok) throw new Error(`Error ${res.status}`);
       setFeedback('הפרטים נשלחו בהצלחה! נחזור אליך בקרוב.');
       setForm({ businessName: '', contactName: '', phone: '', email: '', selfRegister: false });
-    } catch (err) {
-      console.error(err);
+    } catch {
       setFeedback('אירעה שגיאה בשליחה. נסה שוב.');
     } finally {
       setSending(false);
@@ -70,8 +68,7 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="bg-white flex flex-col min-h-screen">
-
+    <div className="bg-white flex flex-col min-h-screen scroll-smooth">
       {/* Hero Section */}
       <section className="relative bg-gradient-to-r from-primary-500 to-primary-400 text-white py-20">
         <div
@@ -86,12 +83,12 @@ const Home: React.FC = () => {
               מערכת מתקדמת לניהול תורים, לקוחות ותשלומים לבעלי קליניקות ועסקים בתחום הטיפולים
             </p>
             <div className="flex flex-wrap gap-4">
-              <Link
-                to="/info"
+              <a
+                href="#info"
                 className="px-6 py-3 bg-secondary-100 text-primary-600 rounded-md font-medium hover:bg-secondary-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-100"
               >
                 עוד פרטים
-              </Link>
+              </a>
               <button
                 onClick={openModal}
                 className="px-6 py-3 bg-white bg-opacity-10 text-white rounded-md font-medium hover:bg-opacity-20 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
@@ -100,6 +97,26 @@ const Home: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Info Section */}
+      <section id="info" className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold mb-4">מהי מערכת ניהול התורים?</h2>
+          <p className="mb-6 text-gray-700">
+            מערכת ניהול תורים חכמה שמספקת פתרון מקיף לניהול לוחות זמנים, לקוחות ותשלומים בעסק שלך.
+            הכל במקום אחד, עם דוחות וניתוחים בזמן אמת ותמיכה מקצועית 24/7.
+          </p>
+          <h3 className="text-2xl font-semibold mb-3">למה לבחור בנו?</h3>
+          <ul className="list-disc list-inside text-gray-700 space-y-2">
+            <li>ממשק משתמש אינטואיטיבי ופשוט לתפעול</li>
+            <li>התאמה מלאה לצרכי העסק שלך</li>
+            <li>התראות ותזכורות אוטומטיות בזמן אמת</li>
+            <li>דוחות וניתוחים מתקדמים לשיפור ביצועים והכנסות</li>
+            <li>תמחור משתלם וללא עלויות נסתרות</li>
+            <li>תמיכה ומענה מקצועי 24/7</li>
+          </ul>
         </div>
       </section>
 
@@ -223,17 +240,17 @@ const Home: React.FC = () => {
           <div>
             <h3 className="font-bold text-lg mb-2">קישורים מהירים</h3>
             <ul className="space-y-1">
-              <li><Link to="/" className="hover:underline">דף הבית</Link></li>
-              <li><Link to="/info" className="hover:underline">עוד פרטים</Link></li>
-              <li><button onClick={openModal} className="hover:underline">התנ</button></li>
+              <li><a href="/" className="hover:underline">דף הבית</a></li>
+              <li><a href="#info" className="hover:underline">עוד פרטים</a></li>
+              <li><button onClick={openModal} className="hover:underline">התחברות</button></li>
             </ul>
           </div>
           <div>
             <h3 className="font-bold text-lg mb-2">אודות המערכת</h3>
-            <p>
+            <p className="mb-2">
               מערכת ניהול תורים חכמה שמספקת פתרון מקיף לניהול לוחות זמנים, לקוחות ותשלומים בעסק שלך.
             </p>
-            <ul className="list-disc list-inside mt-2">
+            <ul className="list-disc list-inside space-y-1">
               <li>ממשק משתמש אינטואיטיבי ופשוט</li>
               <li>התאמה אישית לצרכי העסק שלך</li>
               <li>דוחות וניתוחים בזמן אמת</li>
