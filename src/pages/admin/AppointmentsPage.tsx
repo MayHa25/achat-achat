@@ -31,20 +31,21 @@ const HOURS = Array.from({ length: 13 }, (_, i) => 8 + i); // 08:00–20:00
 
 const AppointmentsPage: React.FC = () => {
   const { user } = useStore();
-  const [appointments, setAppointments] = useState<any[]>([]);
   const [servicesMap, setServicesMap] = useState<Record<string, string>>({});
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [view, setView] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Load services and subscribe to appointments
+  // Load services map once
   useEffect(() => {
     if (!user?.businessId) return;
-
-    // Load services map once
     (async () => {
       const svcsSnap = await getDocs(
-        query(collection(db, 'services'), where('businessId', '==', user.businessId))
+        query(
+          collection(db, 'services'),
+          where('businessId', '==', user.businessId)
+        )
       );
       const map: Record<string, string> = {};
       svcsSnap.docs.forEach(d => {
@@ -53,29 +54,30 @@ const AppointmentsPage: React.FC = () => {
       });
       setServicesMap(map);
     })();
+  }, [user?.businessId]);
 
-    // Real-time subscribe to appointments
+  // Subscribe in real-time to pending appointments
+  useEffect(() => {
+    if (!user?.businessId) return;
     const appsQuery = query(
       collection(db, 'appointments'),
-      where('businessId', '==', user.businessId)
+      where('businessId', '==', user.businessId),
+      where('status', '==', 'pending')
     );
-    const unsubscribeApps = onSnapshot(appsQuery, snapshot => {
-      const apps = snapshot.docs
-        .map(d => ({ id: d.id, ...(d.data() as any) }))
-        .filter(a => a.status === 'pending');
+    const unsubscribe = onSnapshot(appsQuery, snapshot => {
+      const apps = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
       setAppointments(apps);
     });
-
-    return () => unsubscribeApps();
+    return () => unsubscribe();
   }, [user?.businessId]);
 
   const cancelAppointment = async (id: string) => {
     await updateDoc(doc(db, 'appointments', id), { status: 'cancelled_by_admin' });
-    setAppointments(prev => prev.filter(a => a.id !== id));
     setSelectedAppointment(null);
   };
 
   // Date calculations for weekly view
+  const now = new Date();
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const daysOfWeek = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -84,8 +86,6 @@ const AppointmentsPage: React.FC = () => {
     else if (view === 'monthly') setCurrentDate(d => dir === 'next' ? addWeeks(d, 4) : subWeeks(d, 4));
     else setCurrentDate(d => dir === 'next' ? addDays(d, 1) : addDays(d, -1));
   };
-  
-  const now = new Date();
 
   return (
     <div className="p-6 overflow-auto">
@@ -130,13 +130,13 @@ const AppointmentsPage: React.FC = () => {
                   );
                   return (
                     <td key={di} className="border px-2 py-1 h-12">
-                      {appt ? (
+                      {appt && (
                         <button
                           onClick={() => setSelectedAppointment(appt)}
                           className={`w-full h-full text-sm rounded ${inPast ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-primary-100 hover:bg-primary-200 text-primary-700'}`}
                           disabled={inPast}
                         >{appt.clientName}</button>
-                      ) : null}
+                      )}
                     </td>
                   );
                 })}
@@ -190,24 +190,24 @@ const AppointmentsPage: React.FC = () => {
               const end   = endOfMonth(currentDate);
               const days  = eachDayOfInterval({ start, end });
               const rows: Date[][] = [];
-              for (let i=0; i<days.length; i+=7) rows.push(days.slice(i,i+7));
-              return rows.map((week,ri) => (
+              for (let i = 0; i < days.length; i += 7) rows.push(days.slice(i, i + 7));
+              return rows.map((week, ri) => (
                 <tr key={ri}>
-                  {week.map((day,ci) => {
+                  {week.map((day, ci) => {
                     const inPast = isBefore(day, now);
                     const appts = appointments.filter(a =>
                       isSameDay((a.startTime as Timestamp).toDate(), day)
                     );
                     return (
                       <td key={ci} className="border px-2 py-1 align-top h-24">
-                        <div className={inPast?'text-gray-400':''}>{format(day,'d')}</div>
+                        <div className={inPast ? 'text-gray-400' : ''}>{format(day, 'd')}</div>
                         {appts.map(a => (
                           <button
                             key={a.id}
-                            onClick={()=>setSelectedAppointment(a)}
+                            onClick={() => setSelectedAppointment(a)}
                             className={`block w-full text-xs mt-1 rounded px-1 py-0.5 ${inPast ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-primary-100 text-primary-700 hover:bg-primary-200'}`}
                             disabled={inPast}
-                          >{format((a.startTime as Timestamp).toDate(),'HH:mm')} {a.clientName}</button>
+                          >{format((a.startTime as Timestamp).toDate(), 'HH:mm')} {a.clientName}</button>
                         ))}
                       </td>
                     );
@@ -219,18 +219,18 @@ const AppointmentsPage: React.FC = () => {
         </table>
       )}
 
-      {/* Modal */}
+      {/* Modal for detail and cancel */}
       {selectedAppointment && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">פרטי תור</h2>
             <p><strong>לקוחה:</strong> {selectedAppointment.clientName}</p>
             <p><strong>שירות:</strong> {servicesMap[selectedAppointment.serviceId]}</p>
-            <p><strong>תאריך:</strong> {format((selectedAppointment.startTime as Timestamp).toDate(),'eeee, d בMMMM yyyy',{locale:he})}</p>
-            <p><strong>שעה:</strong> {format((selectedAppointment.startTime as Timestamp).toDate(),'HH:mm')}</p>
+            <p><strong>תאריך:</strong> {format((selectedAppointment.startTime as Timestamp).toDate(), 'eeee, d בMMMM yyyy', { locale: he })}</p>
+            <p><strong>שעה:</strong> {format((selectedAppointment.startTime as Timestamp).toDate(), 'HH:mm')}</p>
             <div className="mt-4 flex justify-end space-x-2">
-              <button onClick={()=>cancelAppointment(selectedAppointment.id)} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">בטל תור</button>
-              <button onClick={()=>setSelectedAppointment(null)} className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded">סגור</button>
+              <button onClick={() => cancelAppointment(selectedAppointment.id)} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">בטל תור</button>
+              <button onClick={() => setSelectedAppointment(null)} className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded">סגור</button>
             </div>
           </div>
         </div>
