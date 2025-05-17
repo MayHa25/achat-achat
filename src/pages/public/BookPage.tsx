@@ -301,7 +301,8 @@ const BookPage: React.FC = () => {
       {selectedServiceId && (
         <>
           <h2 className="font-medium mb-3">בחרי מועד</h2>
-          <div className="overflow-x-auto mb-6">
+          {/* here we force LTR direction for correct day indexing */}
+          <div className="overflow-x-auto mb-6" dir="ltr">  
             <table className="min-w-full border border-gray-300">
               <thead>
                 <tr>
@@ -394,9 +395,7 @@ const BookPage: React.FC = () => {
           {/* אישור */}
           <button
             onClick={handleBookAppointment}
-            disabled={
-              !clientName || !clientPhone || !selectedSlot
-            }
+            disabled={!clientName || !clientPhone || !selectedSlot}
             className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700 transition"
           >
             קבעי תור
