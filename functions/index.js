@@ -166,7 +166,6 @@ exports.sendSms = functions.https.onRequest(async (req, res) => {
 // HTTP endpoint: onIncomingSMS
 // =======================
 exports.onIncomingSMS = functions.https.onRequest((req, res) => {
-  // lazy load Express & BodyParser
   const express    = require("express");
   const bodyParser = require("body-parser");
   const app        = express();
@@ -217,28 +216,16 @@ exports.onIncomingSMS = functions.https.onRequest((req, res) => {
               timeZone:'Asia/Jerusalem'
             });
             const ownerMessage = `שלום, הלקוחה ${data.clientName} ביטלה את התור שלה ליום ${day} בשעה ${time}.`;
-            await client.messages.create({
-              body: ownerMessage,
-              from: fromPhone,
-              to: formattedOwner
-            });
+            await client.messages.create({ body: ownerMessage, from: fromPhone, to: formattedOwner });
           }
 
-          await client.messages.create({
-            body: 'התור בוטל בהצלחה.',
-            from: fromPhone,
-            to: from
-          });
+          await client.messages.create({ body: 'התור בוטל בהצלחה.', from: fromPhone, to: from });
           cancelled = true;
           break;
         }
       }
       if (!cancelled) {
-        await client.messages.create({
-          body: 'לא ניתן לבטל תורים פחות מ-24 שעות מראש.',
-          from: fromPhone,
-          to: from
-        });
+        await client.messages.create({ body: 'לא ניתן לבטל תורים פחות מ-24 שעות מראש.', from: fromPhone, to: from });
       }
     }
     res2.send('OK');
@@ -290,11 +277,7 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
         ? owner.phone
         : `+972${owner.phone.replace(/^0/, '')}`;
       const ownerMsg = `📌 תור חדש: ${appointment.clientName} ליום ${day} בשעה ${time}.`;
-      await client.messages.create({
-        body: ownerMsg,
-        from: fromPhone,
-        to: formattedOwner
-      });
+      await client.messages.create({ body: ownerMsg, from: fromPhone, to: formattedOwner });
 
       // שליפת calendarId של העסק
       const bizDoc = await admin.firestore()
@@ -320,27 +303,24 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
 // Firestore trigger: onUpdate appointment (cancelled_by_admin)
 // =======================
 exports.notifyClientOnCancel = functions.firestore
-  .document('businesses/{businessId}/appointments/{appointmentId}')
+  .document('appointments/{appointmentId}')
   .onUpdate(async (change) => {
     const before = change.before.data();
     const after  = change.after.data();
     if (before.status !== 'cancelled_by_admin' && after.status === 'cancelled_by_admin') {
-      const dateObj = after.startTime.toDate ? after.startTime.toDate() : new Date(after.startTime);
-      const day     = dateObj.toLocaleDateString('he-IL', {
+      const appointment = after;
+      const dateObj     = appointment.startTime.toDate();
+      const day         = dateObj.toLocaleDateString('he-IL', {
         weekday:'long', day:'2-digit', month:'2-digit', timeZone:'Asia/Jerusalem'
       });
-      const time    = dateObj.toLocaleTimeString('he-IL', {
+      const time        = dateObj.toLocaleTimeString('he-IL', {
         hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem'
       });
-      const formattedPhone = after.clientPhone.startsWith('+')
-        ? after.clientPhone
-        : `+972${after.clientPhone.replace(/^0/, '')}`;
-      const body    = `שלום ${after.clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`;
-      await client.messages.create({
-        body,
-        from: fromPhone,
-        to: formattedPhone
-      });
+      const clientPhone = appointment.clientPhone.startsWith('+')
+        ? appointment.clientPhone
+        : `+972${appointment.clientPhone.replace(/^0/, '')}`;
+      const body        = `שלום ${appointment.clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`;
+      await client.messages.create({ body, from: fromPhone, to: clientPhone });
     }
   });
 
@@ -348,7 +328,6 @@ exports.notifyClientOnCancel = functions.firestore
 // HTTP function: sendContactForm
 // =======================
 exports.sendContactForm = functions.https.onRequest((req, res) => {
-  // lazy load Express, CORS & BodyParser
   const express    = require("express");
   const cors       = require("cors");
   const bodyParser = require("body-parser");
