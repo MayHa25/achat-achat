@@ -228,38 +228,6 @@ const Home: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white mt-auto">
-        <div className="container mx-auto px-4 py-8 grid md:grid-cols-3 gap-6">
-          <div>
-            <h3 className="font-bold text-lg mb-2">צור קשר</h3>
-            <p>טלפון: 05053393611</p>
-            <p>מייל: may.hakimi010@gmail.com</p>
-          </div>
-          <div>
-            <h3 className="font-bold text-lg mb-2">קישורים מהירים</h3>
-            <ul className="space-y-1">
-              <li><a href="/" className="hover:underline">דף הבית</a></li>
-              <li><a href="#info" className="hover:underline">עוד פרטים</a></li>
-              <li><button onClick={openModal} className="hover:underline">התחברות</button></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-bold text-lg mb-2">אודות המערכת</h3>
-            <p className="mb-2">
-              מערכת ניהול תורים חכמה שמספקת פתרון מקיף לניהול לוחות זמנים, לקוחות ותשלומים בעסק שלך.
-            </p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>ממשק משתמש אינטואיטיבי ופשוט</li>
-              <li>התאמה אישית לצרכי העסק שלך</li>
-              <li>דוחות וניתוחים בזמן אמת</li>
-              <li>תמיכה ומענה מקצועי 24/7</li>
-            </ul>
-          </div>
-        </div>
-        <div className="text-center text-gray-500 mt-8">© 2025 מערכת ניהול תורים - כל הזכויות שמורות</div>
-      </footer>
     </div>
   );
 };
