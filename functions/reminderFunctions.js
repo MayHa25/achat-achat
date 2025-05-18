@@ -24,16 +24,17 @@ exports.sendReminders1DayBefore = functions.pubsub
 
     for (const doc of snapshot.docs) {
       const appt = doc.data();
-      const phone = normalizePhone(appt.clientPhone);
-      const timeStr = formatHour(appt.startTime.toDate());
+      if (appt.status !== 'cancelled_by_admin' && appt.status !== 'cancelled_by_client') {
+        const phone = normalizePhone(appt.clientPhone);
+        const timeStr = formatHour(appt.startTime.toDate());
+        const message = `📅 תזכורת: יש לך תור מחר ל-${appt.serviceName} בשעה ${timeStr}.`;
 
-      const message = `📅 תזכורת: יש לך תור מחר ל-${appt.serviceName} בשעה ${timeStr}.`;
-
-      await client.messages.create({
-        body: message,
-        from: fromPhone,
-        to: phone,
-      });
+        await client.messages.create({
+          body: message,
+          from: fromPhone,
+          to: phone,
+        });
+      }
     }
   });
 
@@ -52,16 +53,17 @@ exports.sendReminders1HourBefore = functions.pubsub
 
     for (const doc of snapshot.docs) {
       const appt = doc.data();
-      const phone = normalizePhone(appt.clientPhone);
-      const timeStr = formatHour(appt.startTime.toDate());
+      if (appt.status !== 'cancelled_by_admin' && appt.status !== 'cancelled_by_client') {
+        const phone = normalizePhone(appt.clientPhone);
+        const timeStr = formatHour(appt.startTime.toDate());
+        const message = `⏰ תזכורת: יש לך תור ל-${appt.serviceName} בעוד שעה, בשעה ${timeStr}.`;
 
-      const message = `⏰ תזכורת: יש לך תור ל-${appt.serviceName} בעוד שעה, בשעה ${timeStr}.`;
-
-      await client.messages.create({
-        body: message,
-        from: fromPhone,
-        to: phone,
-      });
+        await client.messages.create({
+          body: message,
+          from: fromPhone,
+          to: phone,
+        });
+      }
     }
   });
 
