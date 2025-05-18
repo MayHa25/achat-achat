@@ -1,6 +1,7 @@
 // src/pages/Home.tsx
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const CONTACT_FORM_FN_URL =
   'https://us-central1-achat-achat-app.cloudfunctions.net/sendContactForm';
@@ -32,7 +33,6 @@ const Home: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const openModal = () => setShowModal(true);
   const closeModal = () => {
     setShowModal(false);
     setFeedback(null);
@@ -89,12 +89,22 @@ const Home: React.FC = () => {
               >
                 עוד פרטים
               </a>
-              <button
-                onClick={openModal}
+              <Link
+                to="/public/RegisterBusinessPage"
                 className="px-6 py-3 bg-white bg-opacity-10 text-white rounded-md font-medium hover:bg-opacity-20 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
               >
-                התחל עכשיו
-              </button>
+                קנה עכשיו / הירשם עכשיו
+              </Link>
+            </div>
+
+            {/* כפתור נוסף ברור יותר – מתחת לקטע הראשי */}
+            <div className="mt-6">
+              <Link
+                to="/public/RegisterBusinessPage"
+                className="inline-block bg-yellow-400 text-black font-bold px-6 py-3 rounded-xl hover:bg-yellow-500 transition"
+              >
+                להרשמה מיידית למערכת
+              </Link>
             </div>
           </div>
         </div>
@@ -137,7 +147,7 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Modal */}
+      {/* המודל נשמר לשימוש עתידי – לא נפתח כברירת מחדל */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg mx-4 relative">
