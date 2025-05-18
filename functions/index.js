@@ -4,6 +4,8 @@ require("dotenv").config();
 const functions = require("firebase-functions");
 const admin     = require("firebase-admin");
 const twilio    = require("twilio");
+const express   = require("express");
+const bodyParser = require("body-parser");
 const path      = require("path");
 
 admin.initializeApp();
@@ -158,10 +160,7 @@ exports.sendSms = functions.https.onRequest(async (req, res) => {
 // =======================
 // HTTP endpoint: onIncomingSMS (לקוחה שולחת “1”)
 // =======================
-const express    = require("express");
-const bodyParser = require("body-parser");
 const smsApp     = express();
-
 smsApp.use(bodyParser.urlencoded({ extended: false }));
 smsApp.use(bodyParser.json());
 
@@ -207,11 +206,7 @@ smsApp.post('/', async (req, res) => {
             hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem'
           });
           const ownerMessage = `שלום, הלקוחה ${data.clientName} ביטלה תור ליום ${day} בשעה ${time}.`;
-          await client.messages.create({
-            body: ownerMessage,
-            from: fromPhone,
-            to: formattedOwner
-          });
+          await client.messages.create({ body: ownerMessage, from: fromPhone, to: formattedOwner });
         }
 
         // SMS ללקוחה לאישור הביטול
@@ -227,11 +222,7 @@ smsApp.post('/', async (req, res) => {
     }
 
     if (!cancelled) {
-      await client.messages.create({
-        body: 'לא ניתן לבטל פחות מ-24 שעות מראש.',
-        from: fromPhone,
-        to: from
-      });
+      await client.messages.create({ body: 'לא ניתן לבטל פחות מ-24 שעות מראש.', from: fromPhone, to: from });
     }
   }
 
@@ -250,8 +241,7 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
     const businessId  = appointment.businessId;
     const dateObj     = appointment.startTime.toDate();
     const day         = dateObj.toLocaleDateString('he-IL', {
-      weekday:'long', day:'2-digit', month:'2-digit', year:'numeric',
-      timeZone:'Asia/Jerusalem'
+      weekday:'long', day:'2-digit', month:'2-digit', year:'numeric', timeZone:'Asia/Jerusalem'
     });
     const time        = dateObj.toLocaleTimeString('he-IL', {
       hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem'
@@ -262,9 +252,7 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
     await client.messages.create({
       body: clientMsg,
       from: fromPhone,
-      to: appointment.clientPhone.startsWith('+')
-        ? appointment.clientPhone
-        : `+972${appointment.clientPhone.replace(/^0/, '')}`
+      to: appointment.clientPhone.startsWith('+') ? appointment.clientPhone : `+972${appointment.clientPhone.replace(/^0/, '')}`
     });
 
     // SMS לבעל/ת העסק
@@ -278,22 +266,14 @@ exports.sendAppointmentSmsOnCreate = functions.firestore
     let calendarId;
     if (!ownerSnap.empty) {
       const owner = ownerSnap.docs[0].data();
-      const formattedOwner = owner.phone.startsWith('+')
-        ? owner.phone
-        : `+972${owner.phone.replace(/^0/, '')}`;
+      const formattedOwner = owner.phone.startsWith('+') ? owner.phone : `+972${owner.phone.replace(/^0/, '')}`;
       const ownerMsg = `📌 תור חדש: ${appointment.clientName} ליום ${day} בשעה ${time}.`;
-      await client.messages.create({
-        body: ownerMsg,
-        from: fromPhone,
-        to: formattedOwner
-      });
+      await client.messages.create({ body: ownerMsg, from: fromPhone, to: formattedOwner });
 
-      // שליפת calendarId של העסק
       const bizDoc = await admin.firestore().collection('businesses').doc(businessId).get();
       calendarId = bizDoc.data()?.calendarId;
     }
 
-    // יצירת אירוע ביומן
     if (calendarId) {
       await addToGoogleCalendar({
         clientName:  appointment.clientName,
@@ -317,15 +297,9 @@ exports.notifyClientOnCancel = functions.firestore
     if (before.status !== 'cancelled_by_admin' && after.status === 'cancelled_by_admin') {
       const appointment = after;
       const dateObj     = appointment.startTime.toDate();
-      const day         = dateObj.toLocaleDateString('he-IL', {
-        weekday:'long', day:'2-digit', month:'2-digit', timeZone:'Asia/Jerusalem'
-      });
-      const time        = dateObj.toLocaleTimeString('he-IL', {
-        hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem'
-      });
-      const clientPhone = appointment.clientPhone.startsWith('+')
-        ? appointment.clientPhone
-        : `+972${appointment.clientPhone.replace(/^0/, '')}`;
+      const day         = dateObj.toLocaleDateString('he-IL', { weekday:'long', day:'2-digit', month:'2-digit', timeZone:'Asia/Jerusalem' });
+      const time        = dateObj.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem' });
+      const clientPhone = appointment.clientPhone.startsWith('+') ? appointment.clientPhone : `+972${appointment.clientPhone.replace(/^0/, '')}`;
       const body        = `שלום ${appointment.clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`;
       await client.messages.create({ body, from: fromPhone, to: clientPhone });
     }
