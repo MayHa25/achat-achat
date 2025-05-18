@@ -324,5 +324,6 @@ exports.notifyClientOnCancel = functions.firestore
       const time        = dateObj.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit', timeZone:'Asia/Jerusalem' });
       const clientPhone = appointment.clientPhone.startsWith('+') ? appointment.clientPhone : `+972${appointment.clientPhone.replace(/^0/, '')}`;
       await client.messages.create({ body: `שלום ${appointment.clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`, from: fromPhone, to: clientPhone });
+      Object.assign(exports, require('./reminderFunctions'));
     }
   });
