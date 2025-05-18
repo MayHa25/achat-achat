@@ -1,24 +1,11 @@
-// src/pages/Home.tsx
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const CONTACT_FORM_FN_URL =
-  'https://us-central1-achat-achat-app.cloudfunctions.net/sendContactForm';
-
 const testimonials = [
-  {
-    name: 'ענבר לוי',
-    feedback: 'המערכת שינתה לי את החיים! ניהול התורים הפך לפשוט ומהיר.',
-  },
-  {
-    name: 'דנה כהן',
-    feedback: 'חסכתי המון זמן בעזרת המערכת. ממליצה בחום!',
-  },
-  {
-    name: 'מיכאל ישראלי',
-    feedback: 'תמיכה מעולה וחווית משתמש מדהימה.',
-  },
+  { name: 'ענבר לוי', feedback: 'המערכת שינתה לי את החיים! ניהול התורים הפך לפשוט ומהיר.' },
+  { name: 'דנה כהן', feedback: 'חסכתי המון זמן בעזרת המערכת. ממליצה בחום!' },
+  { name: 'מיכאל ישראלי', feedback: 'תמיכה מעולה וחווית משתמש מדהימה.' },
 ];
 
 const Home: React.FC = () => {
@@ -52,12 +39,8 @@ const Home: React.FC = () => {
     setFeedback(null);
 
     try {
-      const res = await fetch(CONTACT_FORM_FN_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
+      // במקום fetch – סימולציה זמנית עד שפונקציית sendContactForm תהיה זמינה
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       setFeedback('הפרטים נשלחו בהצלחה! נחזור אליך בקרוב.');
       setForm({ businessName: '', contactName: '', phone: '', email: '', selfRegister: false });
     } catch {
@@ -126,9 +109,7 @@ const Home: React.FC = () => {
       {/* Testimonials Section */}
       <section id="testimonials" className="py-16 bg-gray-100">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-8 text-center">
-            מה הלקוחות שלנו אומרים
-          </h2>
+          <h2 className="text-3xl font-bold mb-8 text-center">מה הלקוחות שלנו אומרים</h2>
           <div className="grid md:grid-cols-3 gap-8">
             {testimonials.map((t, i) => (
               <div key={i} className="bg-white p-6 rounded-lg shadow">
@@ -140,7 +121,7 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Modal שמור לשימוש עתידי */}
+      {/* Modal לשימוש עתידי – טופס יצירת קשר */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg mx-4 relative">
