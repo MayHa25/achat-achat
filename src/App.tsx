@@ -1,9 +1,7 @@
-// src/App.tsx
-
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import './i18n';               // מאתחל את i18n
-import { loadMockData } from './utils/mockData';  // טוען נתונים מדומים
+import './i18n';
+import { loadMockData } from './utils/mockData';
 
 // Layouts & Guards
 import PublicLayout from './layouts/PublicLayout';
@@ -15,6 +13,7 @@ import Home from './pages/public/Home';
 import BookPage from './pages/public/BookPage';
 import ConfirmationPage from './pages/public/ConfirmationPage';
 import LoginPage from './pages/public/LoginPage';
+import RegisterBusinessPage from './pages/public/RegisterBusinessPage';
 
 // Pages – Admin
 import DashboardPage from './pages/admin/DashboardPage';
@@ -39,6 +38,7 @@ const App: React.FC = () => {
           <Route path=":businessId/book" element={<BookPage />} />
           <Route path="confirmation" element={<ConfirmationPage />} />
           <Route path="login" element={<LoginPage />} />
+          <Route path="public/RegisterBusinessPage" element={<RegisterBusinessPage />} />
         </Route>
 
         {/* Admin routes */}
