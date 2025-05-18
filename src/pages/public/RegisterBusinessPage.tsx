@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { db } from "../../lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 
@@ -11,12 +12,14 @@ const RegisterBusinessPage: React.FC = () => {
     fullName: "",
     phone: "",
     email: "",
+    password: "",
     businessName: "",
     calendarId: "",
   });
 
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const auth = getAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -27,11 +30,18 @@ const RegisterBusinessPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const businessId = uuidv4(); // מזהה עסק ייחודי
-      const userId = uuidv4();     // מזהה משתמש
+      // שלב 1 – יצירת משתמש במערכת (Authentication)
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        form.email,
+        form.password
+      );
 
-      // יצירת מסמך בעלת העסק
-      await setDoc(doc(db, "users", userId), {
+      const uid = userCredential.user.uid;
+      const businessId = uuidv4();
+
+      // שלב 2 – שמירה במסד הנתונים
+      await setDoc(doc(db, "users", uid), {
         fullName: form.fullName,
         phone: form.phone,
         email: form.email,
@@ -41,7 +51,6 @@ const RegisterBusinessPage: React.FC = () => {
         createdAt: new Date(),
       });
 
-      // יצירת מסמך העסק עם calendarId
       await setDoc(doc(db, "businesses", businessId), {
         calendarId: form.calendarId,
         businessName: form.businessName,
@@ -49,10 +58,10 @@ const RegisterBusinessPage: React.FC = () => {
       });
 
       alert("נרשמת בהצלחה! אפשר להתחיל לעבוד 🎉");
-      navigate("/login"); // או לדשבורד
-    } catch (error) {
+      navigate("/login");
+    } catch (error: any) {
       console.error("שגיאה בהרשמה:", error);
-      alert("אירעה שגיאה, נסי שוב");
+      alert(error.message || "אירעה שגיאה, נסי שוב");
     } finally {
       setLoading(false);
     }
@@ -83,6 +92,15 @@ const RegisterBusinessPage: React.FC = () => {
           placeholder="אימייל"
           type="email"
           value={form.email}
+          onChange={handleChange}
+          required
+          className="w-full p-2 border rounded"
+        />
+        <input
+          name="password"
+          placeholder="סיסמה"
+          type="password"
+          value={form.password}
           onChange={handleChange}
           required
           className="w-full p-2 border rounded"
