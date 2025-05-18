@@ -89,15 +89,8 @@ const Home: React.FC = () => {
               >
                 עוד פרטים
               </a>
-              <Link
-                to="/public/RegisterBusinessPage"
-                className="px-6 py-3 bg-white bg-opacity-10 text-white rounded-md font-medium hover:bg-opacity-20 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
-              >
-                קנה עכשיו / הירשם עכשיו
-              </Link>
             </div>
 
-            {/* כפתור נוסף ברור יותר – מתחת לקטע הראשי */}
             <div className="mt-6">
               <Link
                 to="/public/RegisterBusinessPage"
@@ -147,7 +140,7 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* המודל נשמר לשימוש עתידי – לא נפתח כברירת מחדל */}
+      {/* Modal שמור לשימוש עתידי */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg mx-4 relative">
