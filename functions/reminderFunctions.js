@@ -9,75 +9,111 @@ const client = twilio(
 );
 const fromPhone = process.env.TWILIO_PHONE;
 
-// שליחת תזכורת יום לפני התור – כל יום בשעה 8:00 בבוקר
-exports.sendReminders1DayBefore = functions.pubsub
+// פונקציות עזר
+function normalizePhone(phone) {
+  return phone.startsWith("+972") ? phone : `+972${phone.replace(/^0/, "")}`;
+}
+
+function formatHour(date) {
+  return date.toLocaleTimeString("he-IL", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function isCancelled(appt) {
+  return (
+    appt.status === "cancelled_by_admin" ||
+    appt.status === "cancelled_by_client"
+  );
+}
+
+// מניעת שליחה כפולה
+async function sendSmsOnce(to, body, uniqueKey) {
+  const docRef = db.collection("sentMessages").doc(uniqueKey);
+  const doc = await docRef.get();
+  if (doc.exists) return;
+
+  await client.messages.create({ to, from: fromPhone, body });
+  await docRef.set({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+}
+
+// תזכורת יום לפני
+const sendReminders1DayBefore = functions.pubsub
   .schedule("every day 08:00")
   .timeZone("Asia/Jerusalem")
   .onRun(async () => {
     const now = new Date();
-    const target = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const targetDate = new Date(now);
+    targetDate.setDate(now.getDate() + 1);
 
-    const snapshot = await db.collection("appointments")
-      .where("startTime", ">=", admin.firestore.Timestamp.fromDate(startOfHour(target)))
-      .where("startTime", "<", admin.firestore.Timestamp.fromDate(endOfHour(target)))
+    const start = new Date(targetDate.setHours(0, 0, 0, 0));
+    const end = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    const snapshot = await db
+      .collection("appointments")
+      .where("startTime", ">=", admin.firestore.Timestamp.fromDate(start))
+      .where("startTime", "<=", admin.firestore.Timestamp.fromDate(end))
       .get();
 
     for (const doc of snapshot.docs) {
       const appt = doc.data();
-      if (appt.status !== 'cancelled_by_admin' && appt.status !== 'cancelled_by_client') {
-        const phone = normalizePhone(appt.clientPhone);
-        const timeStr = formatHour(appt.startTime.toDate());
-        const message = `📅 תזכורת: יש לך תור מחר ל-${appt.serviceName} בשעה ${timeStr}.`;
+      if (isCancelled(appt)) continue;
 
-        await client.messages.create({
-          body: message,
-          from: fromPhone,
-          to: phone,
-        });
-      }
+      const phone = normalizePhone(appt.clientPhone);
+      const timeStr = formatHour(appt.startTime.toDate());
+      const service = appt.serviceName || "";
+
+      const message = `📅 תזכורת: יש לך תור מחר ל-${service} בשעה ${timeStr}.`;
+
+      await sendSmsOnce(phone, message, `reminder-1d-${doc.id}`);
     }
   });
 
-// שליחת תזכורת שעה לפני התור – כל 30 דקות
-exports.sendReminders1HourBefore = functions.pubsub
-  .schedule("every 30 minutes")
+// תזכורת שעה לפני
+const sendReminders1HourBefore = functions.pubsub
+  .schedule("every 15 minutes")
   .timeZone("Asia/Jerusalem")
   .onRun(async () => {
     const now = new Date();
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    const start = new Date(now.getTime() + 60 * 60 * 1000);
+    start.setMinutes(0, 0, 0);
+    const end = new Date(start);
+    end.setMinutes(59, 59, 999);
 
-    const snapshot = await db.collection("appointments")
-      .where("startTime", ">=", admin.firestore.Timestamp.fromDate(startOfHour(oneHourLater)))
-      .where("startTime", "<", admin.firestore.Timestamp.fromDate(endOfHour(oneHourLater)))
+    const snapshot = await db
+      .collection("appointments")
+      .where("startTime", ">=", admin.firestore.Timestamp.fromDate(start))
+      .where("startTime", "<=", admin.firestore.Timestamp.fromDate(end))
       .get();
 
     for (const doc of snapshot.docs) {
       const appt = doc.data();
-      if (appt.status !== 'cancelled_by_admin' && appt.status !== 'cancelled_by_client') {
-        const phone = normalizePhone(appt.clientPhone);
-        const timeStr = formatHour(appt.startTime.toDate());
-        const message = `⏰ תזכורת: יש לך תור ל-${appt.serviceName} בעוד שעה, בשעה ${timeStr}.`;
+      if (isCancelled(appt)) continue;
 
-        await client.messages.create({
-          body: message,
-          from: fromPhone,
-          to: phone,
-        });
-      }
+      const phone = normalizePhone(appt.clientPhone);
+      const timeStr = formatHour(appt.startTime.toDate());
+      const service = appt.serviceName || "";
+
+      const message = `⏰ תזכורת: יש לך תור ל-${service} בעוד שעה, בשעה ${timeStr}.`;
+
+      await sendSmsOnce(phone, message, `reminder-1h-${doc.id}`);
     }
   });
 
-// סיכום יומי לבעל העסק – כל ערב ב-20:00
-exports.sendSummaryToOwner = functions.pubsub
+// סיכום יומי לבעלת העסק
+const sendSummaryToOwner = functions.pubsub
   .schedule("every day 20:00")
   .timeZone("Asia/Jerusalem")
   .onRun(async () => {
     const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
     const start = new Date(tomorrow.setHours(0, 0, 0, 0));
-    const end   = new Date(tomorrow.setHours(23, 59, 59, 999));
+    const end = new Date(tomorrow.setHours(23, 59, 59, 999));
 
-    const snapshot = await db.collection("appointments")
+    const snapshot = await db
+      .collection("appointments")
       .where("startTime", ">=", admin.firestore.Timestamp.fromDate(start))
       .where("startTime", "<=", admin.firestore.Timestamp.fromDate(end))
       .get();
@@ -86,7 +122,7 @@ exports.sendSummaryToOwner = functions.pubsub
 
     for (const doc of snapshot.docs) {
       const appt = doc.data();
-      if (appt.status === 'cancelled_by_admin' || appt.status === 'cancelled_by_client') continue;
+      if (isCancelled(appt)) continue;
 
       if (!appointmentsByBusiness[appt.businessId]) {
         appointmentsByBusiness[appt.businessId] = [];
@@ -97,7 +133,8 @@ exports.sendSummaryToOwner = functions.pubsub
     for (const businessId in appointmentsByBusiness) {
       const appts = appointmentsByBusiness[businessId];
 
-      const ownerSnap = await db.collection("users")
+      const ownerSnap = await db
+        .collection("users")
         .where("businessId", "==", businessId)
         .where("role", "==", "admin")
         .limit(1)
@@ -111,34 +148,22 @@ exports.sendSummaryToOwner = functions.pubsub
       let message = `📋 סיכום תורים למחר:\n`;
       for (const appt of appts) {
         const time = formatHour(appt.startTime.toDate());
-        message += `• ${time} - ${appt.clientName} (${appt.serviceName})\n`;
+        const clientName = appt.clientName || "לא ידוע";
+        const service = appt.serviceName || "";
+        message += `• ${time} - ${clientName} (${service})\n`;
       }
 
-      await client.messages.create({
-        body: message,
-        from: fromPhone,
-        to: formattedPhone,
-      });
+      await sendSmsOnce(
+        formattedPhone,
+        message,
+        `summary-${businessId}-${start.toDateString()}`
+      );
     }
   });
 
-// פונקציות עזר
-function normalizePhone(phone) {
-  return phone.startsWith("+972") ? phone : `+972${phone.replace(/^0/, "")}`;
-}
-
-function startOfHour(date) {
-  const d = new Date(date);
-  d.setMinutes(0, 0, 0);
-  return d;
-}
-
-function endOfHour(date) {
-  const d = new Date(date);
-  d.setMinutes(59, 59, 999);
-  return d;
-}
-
-function formatHour(date) {
-  return date.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-}
+// ייצוא לפונקציות הראשיות
+module.exports = {
+  sendReminders1DayBefore,
+  sendReminders1HourBefore,
+  sendSummaryToOwner,
+};
