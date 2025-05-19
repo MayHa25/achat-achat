@@ -15,13 +15,16 @@ const RegisterBusinessPage: React.FC = () => {
     password: "",
     businessName: "",
     calendarId: "",
+    plan: "basic", // ברירת מחדל
   });
 
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const auth = getAuth();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -30,38 +33,29 @@ const RegisterBusinessPage: React.FC = () => {
     setLoading(true);
 
     try {
-      // שלב 1 – יצירת משתמש במערכת (Authentication)
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        form.email,
-        form.password
-      );
-
-      const uid = userCredential.user.uid;
-      const businessId = uuidv4();
-
-      // שלב 2 – שמירה במסד הנתונים
-      await setDoc(doc(db, "users", uid), {
-        fullName: form.fullName,
-        phone: form.phone,
-        email: form.email,
-        businessName: form.businessName,
-        role: "admin",
-        businessId,
-        createdAt: new Date(),
+      // שלב 1 – בקשת תשלום מקארדקום
+      const response = await fetch("/createCardcomPayment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: form.fullName,
+          phone: form.phone,
+          email: form.email,
+          plan: form.plan,
+        }),
       });
 
-      await setDoc(doc(db, "businesses", businessId), {
-        calendarId: form.calendarId,
-        businessName: form.businessName,
-        createdAt: new Date(),
-      });
+      const data = await response.json();
 
-      alert("נרשמת בהצלחה! אפשר להתחיל לעבוד 🎉");
-      navigate("/login");
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return;
+      } else {
+        throw new Error("החיוב נכשל. נסי שוב.");
+      }
     } catch (error: any) {
-      console.error("שגיאה בהרשמה:", error);
-      alert(error.message || "אירעה שגיאה, נסי שוב");
+      console.error("שגיאה בתשלום:", error);
+      alert(error.message || "אירעה שגיאה בתשלום");
     } finally {
       setLoading(false);
     }
@@ -121,12 +115,25 @@ const RegisterBusinessPage: React.FC = () => {
           required
           className="w-full p-2 border rounded"
         />
+        <select
+          name="plan"
+          value={form.plan}
+          onChange={handleChange}
+          required
+          className="w-full p-2 border rounded"
+        >
+          <option value="">בחרי מסלול</option>
+          <option value="basic">בסיסי – ₪80 לחודש</option>
+          <option value="advanced">מתקדם – ₪120 לחודש</option>
+          <option value="premium">פרימיום – ₪180 לחודש</option>
+        </select>
+
         <button
           type="submit"
           disabled={loading}
           className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
         >
-          {loading ? "שולחת..." : "הירשמי עכשיו"}
+          {loading ? "מעבירה לתשלום..." : "המשיכי לתשלום"}
         </button>
       </form>
     </div>
