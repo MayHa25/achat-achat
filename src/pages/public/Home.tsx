@@ -60,7 +60,6 @@ const Home: React.FC = () => {
 
   return (
     <div className="bg-white flex flex-col min-h-screen scroll-smooth">
-      {/* Hero Section */}
       <section className="relative bg-gradient-to-r from-primary-500 to-primary-400 text-white py-20">
         <div
           className="absolute inset-0 bg-[url('https://images.pexels.com/photos/3865557/pexels-photo-3865557.jpeg?auto=compress&cs=tinysrgb&w=1920')] bg-cover bg-center mix-blend-overlay opacity-10"
@@ -93,7 +92,6 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Info Section */}
       <section id="info" className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-4">מהי מערכת ניהול התורים?</h2>
@@ -113,7 +111,51 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      <section id="pricing" className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold mb-8 text-center">בחרי את המסלול שלך</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                title: 'בסיסי',
+                price: '89 ₪',
+                sms: '30 הודעות בחודש',
+                extra: '1.5 ₪ להודעה נוספת',
+                features: 'ניהול תורים בסיסי + שליחת SMS'
+              },
+              {
+                title: 'מתקדם',
+                price: '129 ₪',
+                sms: '60 הודעות בחודש',
+                extra: '1.5 ₪ להודעה נוספת',
+                features: 'ניהול תורים + שליחת SMS + ממשק נוח יותר'
+              },
+              {
+                title: 'פרימיום',
+                price: '179 ₪',
+                sms: '100 הודעות בחודש',
+                extra: '1.5 ₪ להודעה נוספת',
+                features: 'ניהול תורים + שליחת SMS + ממשק נרחב יותר'
+              }
+            ].map((plan, index) => (
+              <div key={index} className="bg-white p-6 rounded-lg shadow-md text-center">
+                <h3 className="text-2xl font-bold mb-2">מסלול {plan.title}</h3>
+                <p className="text-3xl font-bold mb-2">{plan.price}</p>
+                <p className="text-gray-700 mb-1">{plan.sms}</p>
+                <p className="text-gray-700 mb-1">{plan.extra}</p>
+                <p className="text-sm text-gray-600 mb-4">{plan.features}</p>
+                <Link
+                  to="/public/RegisterBusinessPage"
+                  className="inline-block bg-yellow-400 text-black font-bold px-4 py-2 rounded-xl hover:bg-yellow-500 transition"
+                >
+                  הירשמי למסלול זה
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="testimonials" className="py-16 bg-gray-100">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8 text-center">מה הלקוחות שלנו אומרים</h2>
@@ -128,7 +170,6 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Floating Button */}
       {showFloatingButton && (
         <Link
           to="/public/RegisterBusinessPage"
@@ -138,7 +179,6 @@ const Home: React.FC = () => {
         </Link>
       )}
 
-      {/* Modal לשימוש עתידי – טופס יצירת קשר */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg mx-4 relative">
@@ -150,77 +190,21 @@ const Home: React.FC = () => {
             </button>
             <h2 className="text-2xl font-bold mb-4">השאר פרטים</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block mb-1 font-medium">שם העסק</label>
-                <input
-                  name="businessName"
-                  value={form.businessName}
-                  onChange={handleChange}
-                  required
-                  className="w-full border px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">שם איש קשר</label>
-                <input
-                  name="contactName"
-                  value={form.contactName}
-                  onChange={handleChange}
-                  required
-                  className="w-full border px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">טלפון</label>
-                <input
-                  name="phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={handleChange}
-                  required
-                  className="w-full border px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 font-medium">אימייל</label>
-                <input
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  className="w-full border px-3 py-2 rounded"
-                />
-              </div>
+              <input name="businessName" value={form.businessName} onChange={handleChange} required className="w-full border px-3 py-2 rounded" placeholder="שם העסק" />
+              <input name="contactName" value={form.contactName} onChange={handleChange} required className="w-full border px-3 py-2 rounded" placeholder="שם איש קשר" />
+              <input name="phone" type="tel" value={form.phone} onChange={handleChange} required className="w-full border px-3 py-2 rounded" placeholder="טלפון" />
+              <input name="email" type="email" value={form.email} onChange={handleChange} className="w-full border px-3 py-2 rounded" placeholder="אימייל" />
               <div className="flex items-center">
-                <input
-                  id="selfRegister"
-                  name="selfRegister"
-                  type="checkbox"
-                  checked={form.selfRegister}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
+                <input id="selfRegister" name="selfRegister" type="checkbox" checked={form.selfRegister} onChange={handleChange} className="mr-2" />
                 <label htmlFor="selfRegister">אני רוצה להירשם ולשלם בעצמי</label>
               </div>
-              <button
-                type="submit"
-                disabled={sending}
-                className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700 transition"
-              >
+              <button type="submit" disabled={sending} className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700 transition">
                 {sending ? 'שולח...' : 'שלח'}
               </button>
             </form>
-
             {feedback && (
-              <p
-                className={`mt-4 text-center ${
-                  feedback.includes('שגיאה') ? 'text-red-600' : 'text-green-600'
-                }`}
-              >
-                {feedback}
-              </p>
+              <p className={`mt-4 text-center ${feedback.includes('שגיאה') ? 'text-red-600' : 'text-green-600'}`}>{feedback}</p>
             )}
-
             {form.selfRegister && (
               <p className="mt-4 text-sm text-gray-600">
                 לאחר שליחת הפרטים תקבלי קישור לתשלום מאובטח דרך Stripe.
