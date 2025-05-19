@@ -1,11 +1,6 @@
 // src/pages/public/RegisterBusinessPage.tsx
 
 import React, { useState } from "react";
-import { db } from "../../lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
-import { v4 as uuidv4 } from "uuid";
 
 const RegisterBusinessPage: React.FC = () => {
   const [form, setForm] = useState({
@@ -19,8 +14,6 @@ const RegisterBusinessPage: React.FC = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const auth = getAuth();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -33,7 +26,6 @@ const RegisterBusinessPage: React.FC = () => {
     setLoading(true);
 
     try {
-      // שלב 1 – בקשת תשלום מקארדקום
       const response = await fetch("/createCardcomPayment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
