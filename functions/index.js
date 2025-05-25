@@ -204,10 +204,19 @@ exports.sendSmsOnBooking = functions
 // HTTP endpoint: sendSms
 // =======================
 exports.sendSms = functions.https.onRequest(async (req, res) => {
-  const { to, message } = req.body;
-  const formattedPhone  = to.startsWith('+') ? to : `+972${to.replace(/^0/, '')}`;
-
   try {
+    // ודא שהגוף הוא JSON תקין
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).send({ success: false, error: 'Invalid or missing JSON body' });
+    }
+
+    const { to, message } = req.body;
+    if (!to || !message) {
+      return res.status(400).send({ success: false, error: 'Missing "to" or "message" field' });
+    }
+
+    const formattedPhone = to.startsWith('+') ? to : `+972${to.replace(/^0/, '')}`;
+
     await client.messages.create({ body: message, from: fromPhone, to: formattedPhone });
     res.status(200).send({ success: true });
   } catch (error) {
