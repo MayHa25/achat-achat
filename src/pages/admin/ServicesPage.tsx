@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   collection,
   getDocs,
@@ -6,11 +6,14 @@ import {
   deleteDoc,
   doc,
   updateDoc,
+  getDoc,
   query,
   where
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
+import ImageUpload from './ImageUpload';
+import Gallery from './Gallery';
 
 interface Service {
   id: string;
@@ -31,6 +34,7 @@ const ServicesPage: React.FC = () => {
     duration: 30,
     notes: ''
   });
+  const [plan, setPlan] = useState<string>('basic');
 
   useEffect(() => {
     if (!user?.businessId) return;
@@ -41,8 +45,14 @@ const ServicesPage: React.FC = () => {
         const snapshot = await getDocs(q);
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Service[];
         setServices(data);
+
+        const businessDoc = await getDoc(doc(db, 'businesses', user.businessId));
+        if (businessDoc.exists()) {
+          const businessData = businessDoc.data();
+          setPlan(businessData.plan || 'basic');
+        }
       } catch (error) {
-        console.error('שגיאה בטעינת שירותים:', error);
+        console.error('שגיאה בטעינת שירותים או מסלול:', error);
       }
     };
 
@@ -150,7 +160,7 @@ const ServicesPage: React.FC = () => {
         ) : (
           <ul className="space-y-4">
             {services.map(service => (
-              <li key={service.id} className="border p-4 rounded">
+              <li key={service.id} className="border p-4 rounded space-y-3">
                 {editingId === service.id ? (
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                     <input
@@ -183,29 +193,39 @@ const ServicesPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-bold text-lg">{service.name}</p>
-                      <p className="text-sm text-gray-500">
-                        מחיר: ₪{service.price} | משך: {service.duration} דקות
-                        {service.notes && ` | הערות: ${service.notes}`}
-                      </p>
+                  <>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-lg">{service.name}</p>
+                        <p className="text-sm text-gray-500">
+                          מחיר: ₪{service.price} | משך: {service.duration} דקות
+                          {service.notes && ` | הערות: ${service.notes}`}
+                        </p>
+                      </div>
+                      <div className="flex flex-row-reverse gap-4">
+                        <button
+                          onClick={() => handleEdit(service)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          ערוך
+                        </button>
+                        <button
+                          onClick={() => handleDeleteService(service.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          מחק
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex flex-row-reverse gap-4">
-                      <button
-                        onClick={() => handleEdit(service)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        ערוך
-                      </button>
-                      <button
-                        onClick={() => handleDeleteService(service.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        מחק
-                      </button>
-                    </div>
-                  </div>
+
+                    {plan !== 'basic' && (
+                      <div className="mt-4 space-y-2">
+                        <p className="font-semibold text-sm text-gray-700">תמונות לשירות הזה:</p>
+                        <ImageUpload serviceId={service.id} />
+                        <Gallery serviceId={service.id} />
+                      </div>
+                    )}
+                  </>
                 )}
               </li>
             ))}

@@ -38,6 +38,7 @@ const BookPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [services, setServices] = useState<Service[]>([]);
+  const [serviceGallery, setServiceGallery] = useState<string[]>([]);
   const [availabilities, setAvailabilities] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
@@ -47,7 +48,7 @@ const BookPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [weekOffset, setWeekOffset] = useState<number>(0);
 
-  const now = new Date(); // ✅ בשימוש לבדיקה אם השעה עברה
+  const now = new Date();
 
   useEffect(() => {
     if (!businessId) return;
@@ -83,6 +84,7 @@ const BookPage: React.FC = () => {
 
     fetchData();
   }, [businessId]);
+
   const getAvailableHoursForDay = (dayIndex: number): string[] => {
     const dayAvailability = availabilities.find(
       a => a.dayOfWeek === dayIndex && a.available
@@ -107,15 +109,24 @@ const BookPage: React.FC = () => {
     });
   };
 
+  const handleSelectService = async (serviceId: string) => {
+    setSelectedServiceId(serviceId);
+    try {
+      const serviceRef = doc(db, 'services', serviceId);
+      const snap = await getDoc(serviceRef);
+      setServiceGallery(snap.exists() ? snap.data().gallery || [] : []);
+    } catch (err) {
+      console.error('שגיאה בטעינת גלריה:', err);
+      setServiceGallery([]);
+    }
+  };
+
   const handleBookAppointment = async () => {
     if (!selectedSlot || !selectedServiceId || !businessId || !clientName || !clientPhone)
       return;
 
     const selectedService = services.find(s => s.id === selectedServiceId)!;
-    const weekStart = addWeeks(
-      startOfWeek(new Date(), { weekStartsOn: 0 }),
-      weekOffset
-    );
+    const weekStart = addWeeks(startOfWeek(new Date(), { weekStartsOn: 0 }), weekOffset);
     const [hour, minute] = selectedSlot.time.split(':').map(Number);
     const dayDate = addDays(weekStart, selectedSlot.day);
     const startTimeDate = setMinutes(setHours(dayDate, hour), minute);
@@ -133,10 +144,7 @@ const BookPage: React.FC = () => {
     };
 
     try {
-      const appointmentRef = await addDoc(
-        collection(db, 'appointments'),
-        newAppointment
-      );
+      const appointmentRef = await addDoc(collection(db, 'appointments'), newAppointment);
 
       try {
         await fetch(SEND_SMS_FN_URL, {
@@ -155,6 +163,7 @@ const BookPage: React.FC = () => {
           where('phone', '==', clientPhone)
         )
       );
+
       let visitCount = 1;
       let totalAmount = selectedService.price;
       let status = 'מזדמן';
@@ -194,18 +203,12 @@ const BookPage: React.FC = () => {
       console.error('שגיאה בקביעת התור:', err);
     }
   };
-  if (!businessId) {
-    return <p className="text-center mt-10 text-red-600 font-bold">שגיאה: לא נמצא מזהה עסק בכתובת.</p>;
-  }
-  if (loading) {
-    return <p className="text-center mt-10">טוען נתונים...</p>;
-  }
+
+  if (!businessId) return <p className="text-center mt-10 text-red-600 font-bold">שגיאה: לא נמצא מזהה עסק בכתובת.</p>;
+  if (loading) return <p className="text-center mt-10">טוען נתונים...</p>;
 
   const weekDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-  const currentWeekStart = addWeeks(
-    startOfWeek(new Date(), { weekStartsOn: 0 }),
-    weekOffset
-  );
+  const currentWeekStart = addWeeks(startOfWeek(new Date(), { weekStartsOn: 0 }), weekOffset);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -225,7 +228,7 @@ const BookPage: React.FC = () => {
             return (
               <div
                 key={s.id}
-                onClick={() => setSelectedServiceId(s.id)}
+                onClick={() => handleSelectService(s.id)}
                 className={`border p-4 rounded cursor-pointer ${isSelected ? 'border-primary-600 bg-primary-50' : 'border-gray-200'}`}
               >
                 <p className="font-semibold">{s.name}</p>
@@ -236,6 +239,17 @@ const BookPage: React.FC = () => {
           })}
         </div>
       </div>
+
+      {serviceGallery.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-semibold mb-2">תמונות לדוגמה לשירות:</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {serviceGallery.map((url, idx) => (
+              <img key={idx} src={url} alt={`תמונה ${idx + 1}`} className="rounded shadow max-h-48 object-cover" />
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedServiceId && (
         <>
@@ -248,9 +262,7 @@ const BookPage: React.FC = () => {
                     const date = addDays(currentWeekStart, i);
                     return (
                       <th key={i} className="border px-4 py-2 text-sm font-medium">
-                        {day}
-                        <br />
-                        {format(date, 'd/M')}
+                        {day}<br />{format(date, 'd/M')}
                       </th>
                     );
                   })}
@@ -263,9 +275,7 @@ const BookPage: React.FC = () => {
                       const hours = getAvailableHoursForDay(dayIndex);
                       const time = hours[row];
                       const date = addDays(currentWeekStart, dayIndex);
-                      if (!time) {
-                        return <td key={dayIndex} className="border px-4 py-2 text-center text-gray-300">—</td>;
-                      }
+                      if (!time) return <td key={dayIndex} className="border px-4 py-2 text-center text-gray-300">—</td>;
 
                       const taken = isTimeTaken(date, time);
                       const [hour, minute] = time.split(':').map(Number);
