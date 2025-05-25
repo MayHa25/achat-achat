@@ -251,6 +251,8 @@ const BookPage: React.FC = () => {
         </div>
       )}
 
+      {/* זמני קביעה, פרטי יצירת קשר וכו' נשארים כאן כמות שהם */}
+
       {selectedServiceId && (
         <>
           <h2 className="font-medium mb-3">בחרי מועד</h2>

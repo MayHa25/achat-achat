@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   collection,
   getDocs,
@@ -6,14 +6,12 @@ import {
   deleteDoc,
   doc,
   updateDoc,
-  getDoc,
   query,
   where
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import useStore from '../../store/useStore';
 import ImageUpload from './ImageUpload';
-import Gallery from './Gallery';
 
 interface Service {
   id: string;
@@ -21,6 +19,7 @@ interface Service {
   price: number;
   duration: number;
   notes?: string;
+  gallery?: string[];
 }
 
 const ServicesPage: React.FC = () => {
@@ -34,7 +33,6 @@ const ServicesPage: React.FC = () => {
     duration: 30,
     notes: ''
   });
-  const [plan, setPlan] = useState<string>('basic');
 
   useEffect(() => {
     if (!user?.businessId) return;
@@ -45,14 +43,8 @@ const ServicesPage: React.FC = () => {
         const snapshot = await getDocs(q);
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Service[];
         setServices(data);
-
-        const businessDoc = await getDoc(doc(db, 'businesses', user.businessId));
-        if (businessDoc.exists()) {
-          const businessData = businessDoc.data();
-          setPlan(businessData.plan || 'basic');
-        }
       } catch (error) {
-        console.error('שגיאה בטעינת שירותים או מסלול:', error);
+        console.error('שגיאה בטעינת שירותים:', error);
       }
     };
 
@@ -160,7 +152,7 @@ const ServicesPage: React.FC = () => {
         ) : (
           <ul className="space-y-4">
             {services.map(service => (
-              <li key={service.id} className="border p-4 rounded space-y-3">
+              <li key={service.id} className="border p-4 rounded">
                 {editingId === service.id ? (
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                     <input
@@ -193,7 +185,7 @@ const ServicesPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <>
+                  <div>
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="font-bold text-lg">{service.name}</p>
@@ -217,15 +209,12 @@ const ServicesPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-
-                    {plan !== 'basic' && (
-                      <div className="mt-4 space-y-2">
-                        <p className="font-semibold text-sm text-gray-700">תמונות לשירות הזה:</p>
+                    {(user?.plan === 'plus' || user?.plan === 'premium') && (
+                      <div className="mt-4">
                         <ImageUpload serviceId={service.id} />
-                        <Gallery serviceId={service.id} />
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </li>
             ))}

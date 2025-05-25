@@ -8,6 +8,7 @@ import {
   BlockedTime,
 } from '../types';
 
+// ✅ טיפוס מתוקן של User – עם plan
 export interface User {
   id: string;
   name: string;
@@ -15,6 +16,7 @@ export interface User {
   phone?: string;
   role: 'admin' | 'user';
   businessId: string;
+  plan?: 'basic' | 'plus' | 'premium'; // ← שדה חדש
 }
 
 interface AppState {
