@@ -15,10 +15,29 @@ function normalizePhone(phone) {
 }
 
 function formatHour(date) {
-  return date.toLocaleTimeString("he-IL", {
+  return new Intl.DateTimeFormat("he-IL", {
     hour: "2-digit",
     minute: "2-digit",
-  });
+    hour12: false,
+    timeZone: "Asia/Jerusalem",
+  }).format(date);
+}
+
+function formatDateTime(date) {
+  const time = new Intl.DateTimeFormat("he-IL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Jerusalem",
+  }).format(date);
+  const day = new Intl.DateTimeFormat("he-IL", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Jerusalem",
+  }).format(date);
+  return { day, time };
 }
 
 function isCancelled(appt) {
@@ -28,12 +47,10 @@ function isCancelled(appt) {
   );
 }
 
-// מניעת שליחה כפולה
 async function sendSmsOnce(to, body, uniqueKey) {
   const docRef = db.collection("sentMessages").doc(uniqueKey);
   const doc = await docRef.get();
   if (doc.exists) return;
-
   await client.messages.create({ to, from: fromPhone, body });
   await docRef.set({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
 }
@@ -44,11 +61,14 @@ const sendReminders1DayBefore = functions.pubsub
   .timeZone("Asia/Jerusalem")
   .onRun(async () => {
     const now = new Date();
-    const targetDate = new Date(now);
-    targetDate.setDate(now.getDate() + 1);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const start = new Date(targetDate.setHours(0, 0, 0, 0));
-    const end = new Date(targetDate.setHours(23, 59, 59, 999));
+    const start = new Date(tomorrow);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(tomorrow);
+    end.setHours(23, 59, 59, 999);
 
     const snapshot = await db
       .collection("appointments")
@@ -65,7 +85,6 @@ const sendReminders1DayBefore = functions.pubsub
       const service = appt.serviceName || "";
 
       const message = `📅 תזכורת: יש לך תור מחר ל-${service} בשעה ${timeStr}.`;
-
       await sendSmsOnce(phone, message, `reminder-1d-${doc.id}`);
     }
   });
@@ -76,10 +95,8 @@ const sendReminders1HourBefore = functions.pubsub
   .timeZone("Asia/Jerusalem")
   .onRun(async () => {
     const now = new Date();
-    const start = new Date(now.getTime() + 60 * 60 * 1000);
-    start.setMinutes(0, 0, 0);
-    const end = new Date(start);
-    end.setMinutes(59, 59, 999);
+    const start = new Date(now.getTime() + 55 * 60 * 1000);
+    const end = new Date(now.getTime() + 65 * 60 * 1000);
 
     const snapshot = await db
       .collection("appointments")
@@ -96,7 +113,6 @@ const sendReminders1HourBefore = functions.pubsub
       const service = appt.serviceName || "";
 
       const message = `⏰ תזכורת: יש לך תור ל-${service} בעוד שעה, בשעה ${timeStr}.`;
-
       await sendSmsOnce(phone, message, `reminder-1h-${doc.id}`);
     }
   });
@@ -108,9 +124,13 @@ const sendSummaryToOwner = functions.pubsub
   .onRun(async () => {
     const now = new Date();
     const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    const start = new Date(tomorrow.setHours(0, 0, 0, 0));
-    const end = new Date(tomorrow.setHours(23, 59, 59, 999));
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const start = new Date(tomorrow);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(tomorrow);
+    end.setHours(23, 59, 59, 999);
 
     const snapshot = await db
       .collection("appointments")
@@ -147,7 +167,8 @@ const sendSummaryToOwner = functions.pubsub
 
       let message = `📋 סיכום תורים למחר:\n`;
       for (const appt of appts) {
-        const time = formatHour(appt.startTime.toDate());
+        const date = appt.startTime.toDate();
+        const time = formatHour(date);
         const clientName = appt.clientName || "לא ידוע";
         const service = appt.serviceName || "";
         message += `• ${time} - ${clientName} (${service})\n`;
@@ -161,7 +182,6 @@ const sendSummaryToOwner = functions.pubsub
     }
   });
 
-// ייצוא לפונקציות הראשיות
 module.exports = {
   sendReminders1DayBefore,
   sendReminders1HourBefore,
