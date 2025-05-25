@@ -419,6 +419,7 @@ exports.notifyClientOnCancel = functions.firestore
         body: `שלום ${appointment.clientName}, התור שלך ליום ${day} בשעה ${time} בוטל על-ידי בעלת העסק.`,
         from: fromPhone,
         to: clientPhone,
+        
       });
     }
   });
@@ -426,4 +427,7 @@ exports.notifyClientOnCancel = functions.firestore
 // =======================
 // Scheduled reminders (load from separate module)
 // =======================
+const { createCardcomPayment } = require('./createCardcomPayment');
+exports.createCardcomPayment = createCardcomPayment;
+
 Object.assign(exports, require('./reminderFunctions'));
