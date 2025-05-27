@@ -167,8 +167,11 @@ const sendSummaryToOwner = functions.pubsub
 
       let message = `📋 סיכום תורים למחר:\n`;
       for (const appt of appts) {
-        const date = appt.startTime.toDate();
-        const time = formatHour(date);
+        const utcDate = appt.startTime.toDate();
+        const israelDate = new Date(
+          utcDate.toLocaleString("en-US", { timeZone: "Asia/Jerusalem" })
+        );
+        const time = formatHour(israelDate);
         const clientName = appt.clientName || "לא ידוע";
         const service = appt.serviceName || "";
         message += `• ${time} - ${clientName} (${service})\n`;
